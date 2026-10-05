@@ -1,0 +1,5 @@
+# For GPU inference/training, install the CUDA build of PyTorch first (see pytorch.org),
+# otherwise pip pulls the CPU build in through ultralytics.
+ultralytics>=8.3
+opencv-python>=4.10
+numpy
