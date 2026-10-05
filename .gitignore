@@ -216,3 +216,7 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Nexora SafeRoad AI
+ai/model/*.pt
+ai/output/
