@@ -1,0 +1,42 @@
+# docker compose up --build
+#   API:      http://localhost:8000/docs
+#   Postgres: localhost:5432 (saferoad / saferoad)
+# The AI pipeline runs on the host (it needs the GPU/webcam):
+#   python -m ai.main --source <video> --backend http://localhost:8000
+services:
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: saferoad
+      POSTGRES_PASSWORD: saferoad
+      POSTGRES_DB: saferoad
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U saferoad -d saferoad"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    environment:
+      DATABASE_URL: postgresql+psycopg://saferoad:saferoad@db:5432/saferoad
+      MEDIA_DIR: /data/media
+      AI_API_KEY: ${AI_API_KEY:-dev-ai-key}
+      CORS_ORIGINS: http://localhost:5173
+    ports:
+      - "8000:8000"
+    volumes:
+      - media:/data/media
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pgdata:
+  media:
