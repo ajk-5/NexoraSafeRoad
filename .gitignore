@@ -224,8 +224,3 @@ ai/output/
 # Backend local development data
 backend/saferoad.db
 backend/media/
-
-# Nexora SafeRoad frontend
-frontend/node_modules/
-frontend/dist/
-frontend/.env.local
