@@ -13,8 +13,9 @@ from __future__ import annotations
 
 from collections.abc import Collection
 from datetime import datetime, timedelta
+from typing import Any, cast
 
-from sqlalchemy import case, or_, select, update
+from sqlalchemy import CursorResult, case, or_, select, update
 from sqlalchemy.orm import Session
 
 from .. import config
@@ -61,12 +62,13 @@ def set_status(
     db: Session, operator: Operator, status: OperatorStatus, only_from: Collection[OperatorStatus]
 ) -> bool:
     """Atomically move `operator` to `status` if its current status is in `only_from`."""
-    result = db.execute(
+    # UPDATE statements return a CursorResult, which is what carries rowcount.
+    result = cast("CursorResult[Any]", db.execute(
         update(Operator)
         .where(Operator.id == operator.id, Operator.status.in_(only_from))
         .values(status=status)
         .execution_options(synchronize_session="fetch")
-    )
+    ))
     return result.rowcount > 0
 
 
@@ -87,7 +89,7 @@ def assign_waiting_incidents(db: Session, now: datetime | None = None) -> list[I
     choice is the admin who has waited longest since their last assignment.
     """
     now = now or utcnow()
-    assigned = []
+    assigned: list[Incident] = []
     while True:
         admin = db.scalars(
             select(Operator)

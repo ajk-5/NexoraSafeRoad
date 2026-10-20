@@ -1,45 +1,57 @@
-"""Incident delivery. Alerts to emergency services are simulated for the MVP:
-they are logged, and the incident is sent to the backend when one is configured."""
+"""Incident delivery: the incident is logged, and sent to the backend when one is
+configured. The backend decides which services to alert, and the admin confirms."""
 from __future__ import annotations
 
-import json
 import logging
-import urllib.error
-import urllib.request
 from pathlib import Path
+from typing import NotRequired, TypedDict
+
+from .backend_client import BackendClient, BackendError
 
 log = logging.getLogger("saferoad.ai")
 
 
-def simulate_dispatch(incident: dict) -> None:
+class IncidentReport(TypedDict):
+    """What the AI saw for a confirmed accident (the backend's IncidentCreate)."""
+
+    type: str
+    camera_id: str
+    latitude: float
+    longitude: float
+    severity: str
+    confidence: float
+    vehicles: int
+    people: int
+    fire: bool
+    overturned: bool
+    detected_at: str
+    video_time: float
+    clip_path: NotRequired[str]  # set once the clip is written
+
+
+def log_incident(incident: IncidentReport) -> None:
+    seen = f"{incident['vehicles']} vehicles, {incident['people']} people"
+    if incident["fire"]:
+        seen += ", fire"
+    if incident["overturned"]:
+        seen += ", overturned vehicle"
     log.warning(
-        "ALERT [%s] -> %s | %.5f, %.5f | clip: %s",
+        "ACCIDENT [%s] %s | %.5f, %.5f | clip: %s",
         incident["severity"],
-        ", ".join(incident["responders"]),
+        seen,
         incident["latitude"],
         incident["longitude"],
         incident.get("clip_path"),
     )
 
 
-def send_incident(incident: dict, clip_path: Path, backend_url: str, api_key: str) -> bool:
+def send_incident(incident: IncidentReport, clip_path: Path, backend_url: str, api_key: str) -> bool:
     """Report the incident to the backend, then upload its clip for the operator to review."""
-    url = f"{backend_url.rstrip('/')}/api/incidents"
-    created = _request("POST", url, json.dumps(incident).encode(), "application/json", api_key)
-    if created is None:
-        return False
-    return _request("PUT", f"{url}/{created['id']}/video", clip_path.read_bytes(), "video/mp4", api_key) is not None
-
-
-def _request(method: str, url: str, body: bytes, content_type: str, api_key: str) -> dict | None:
-    request = urllib.request.Request(
-        url, data=body, method=method, headers={"Content-Type": content_type, "X-API-Key": api_key}
-    )
+    client = BackendClient(backend_url, api_key)
     try:
-        with urllib.request.urlopen(request, timeout=30) as response:
-            return json.load(response)
-    except urllib.error.HTTPError as exc:
-        log.error("%s %s failed with %s: %s", method, url, exc.code, exc.read().decode(errors="replace"))
-    except (urllib.error.URLError, TimeoutError) as exc:
-        log.error("%s %s failed: %s", method, url, exc)
-    return None
+        created = client.post("/api/incidents", incident)
+        client.put_file(f"/api/incidents/{created['id']}/video", clip_path, "video/mp4")
+    except BackendError as exc:
+        log.error("Could not send the incident to the backend: %s", exc)
+        return False
+    return True

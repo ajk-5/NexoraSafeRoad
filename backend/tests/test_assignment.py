@@ -1,6 +1,7 @@
 """Admin assignment, waiting queue, locking and timeouts (README sections 22-35)."""
 import unittest
 from datetime import timedelta
+from typing import Any
 
 from backend import config
 from backend.database import utcnow
@@ -31,7 +32,7 @@ class AssignmentTest(ApiTestCase):
         ids = {f"{sev} {t}": self.report(severity=sev, detected_at=f"2026-10-17T{t}:00+00:00")["id"] for sev, t in reports}
         admin = self.login("admin1")
 
-        served = []
+        served: list[str] = []
         for _ in reports:
             current = self.me(admin)["currentIncidentId"]
             served.append(next(k for k, v in ids.items() if v == current))
@@ -86,7 +87,13 @@ class LockingTest(ApiTestCase):
         self.assertFalse(self.get(self.url, self.other)["canEdit"])
 
     def test_other_admins_cannot_change_it(self):
-        for action, body in [("review", None), ("draft", {"services": []}), ("send", {"services": ["POLICE"]}), ("decline", None)]:
+        actions: list[tuple[str, dict[str, Any] | None]] = [
+            ("review", None),
+            ("draft", {"services": []}),
+            ("send", {"services": ["POLICE"]}),
+            ("decline", None),
+        ]
+        for action, body in actions:
             with self.subTest(action):
                 error = self.post(f"{self.url}/{action}", self.other, body, expect=409)
                 self.assertEqual(error["error"], "INCIDENT_ALREADY_ASSIGNED")

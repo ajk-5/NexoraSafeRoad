@@ -69,9 +69,7 @@ def advance(db: Session, alert_id: int, operator: Operator, status: AlertStatus,
 def _resolve_incident_if_done(db: Session, incident_id: int, now: datetime) -> None:
     # Lock the incident first so two services resolving at the same moment cannot
     # both miss each other's update and leave the incident open.
-    incident = db.scalar(
-        select(Incident).where(Incident.id == incident_id).with_for_update().execution_options(populate_existing=True)
-    )
+    incident = db.get_one(Incident, incident_id, with_for_update=True, populate_existing=True)
     unresolved = db.scalar(
         select(func.count()).where(Alert.incident_id == incident_id, Alert.status != AlertStatus.RESOLVED)
     )

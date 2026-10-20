@@ -12,9 +12,9 @@ class AiReportTest(ApiTestCase):
         self.assertTrue(incident["possibleInjuries"])
         self.assertEqual(incident["detectedAt"], "2026-10-17T10:24:00Z")
         self.assertEqual(
-            incident["suggestedServices"][0], {"service": "POLICE", "reason": "Traffic management"}
+            incident["suggestedServices"][0], {"service": "POLICE", "reason": "Secure the scene and manage traffic"}
         )
-        self.assertEqual(incident["selectedServices"], ["POLICE", "POMPIERS", "AMBULANCE", "DEPANNAGE"])
+        self.assertEqual(incident["selectedServices"], ["POLICE", "AMBULANCE", "POMPIERS", "DEPANNAGE"])
 
     def test_requires_the_api_key(self):
         self.assertEqual(self.client.post("/api/incidents", json=ai_report()).status_code, 401)
@@ -22,7 +22,7 @@ class AiReportTest(ApiTestCase):
         self.assertEqual(response.status_code, 401)
 
     def test_rejects_invalid_reports(self):
-        for bad in [{"severity": "EXTREME"}, {"confidence": 1.5}, {"responders": ["firemen"]}, {"latitude": 123}]:
+        for bad in [{"severity": "EXTREME"}, {"confidence": 1.5}, {"people": -1}, {"latitude": 123}]:
             with self.subTest(bad):
                 response = self.client.post("/api/incidents", json=ai_report(**bad), headers=AI_HEADERS)
                 self.assertEqual(response.status_code, 422)

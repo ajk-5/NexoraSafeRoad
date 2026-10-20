@@ -62,14 +62,18 @@ class ClipRecorder:
         writer = self._open_writer(clip.path)
         try:
             for data in clip.frames:
-                writer.write(cv2.imdecode(np.frombuffer(data, np.uint8), cv2.IMREAD_COLOR))
+                frame = cv2.imdecode(np.frombuffer(data, np.uint8), cv2.IMREAD_COLOR)
+                if frame is not None:  # we encoded it ourselves, so decoding should not fail
+                    writer.write(frame)
         finally:
             writer.release()
         return clip.path, clip.payload
 
     def _open_writer(self, path: Path) -> cv2.VideoWriter:
+        if self._size is None:
+            raise RuntimeError("No frame has been pushed yet")
         for codec in [self._codec] if self._codec else CODECS:
-            writer = cv2.VideoWriter(str(path), cv2.VideoWriter_fourcc(*codec), self.fps, self._size)
+            writer = cv2.VideoWriter(str(path), cv2.VideoWriter.fourcc(*codec), self.fps, self._size)
             if writer.isOpened():
                 self._codec = codec
                 return writer

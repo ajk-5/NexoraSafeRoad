@@ -1,8 +1,9 @@
 """Sending alerts and the service operator intervention flow (README sections 18-21)."""
 import unittest
+from typing import Any
 
 from backend.models import Role
-from backend.tests.base import ApiTestCase
+from backend.tests.base import ApiTestCase, Headers
 
 
 class AlertTest(ApiTestCase):
@@ -13,21 +14,24 @@ class AlertTest(ApiTestCase):
         self.ambulance = self.login("ambulance1", Role.AMBULANCE)
         self.pompiers = self.login("pompiers1", Role.POMPIERS)
 
-    def send(self, services: list[str]) -> dict:
+    def send(self, services: list[str]) -> dict[str, Any]:
         incident_id = self.me(self.admin)["currentIncidentId"] or self.report()["id"]
         return self.post(f"/api/incidents/{incident_id}/send", self.admin, {"services": services})
 
-    def alert_for(self, headers: dict, incident_id: int) -> dict:
+    def alert_for(self, headers: Headers, incident_id: int) -> dict[str, Any]:
         return next(a for a in self.get("/api/alerts", headers) if a["incidentId"] == incident_id)
 
     def test_admin_can_change_the_ai_suggestion_before_sending(self):
-        incident = self.report()
-        self.assertEqual(
-            [s["service"] for s in incident["suggestedServices"]], ["POLICE", "POMPIERS", "AMBULANCE", "DEPANNAGE"]
+        incident = self.report()  # 3 vehicles, 1 person, no fire: no Pompiers suggested
+        self.assertEqual([s["service"] for s in incident["suggestedServices"]], ["POLICE", "AMBULANCE", "DEPANNAGE"])
+        sent = self.post(
+            f"/api/incidents/{incident['id']}/send", self.admin, {"services": ["POLICE", "AMBULANCE", "POMPIERS"]}
         )
-        sent = self.post(f"/api/incidents/{incident['id']}/send", self.admin, {"services": ["POLICE", "AMBULANCE"]})
         self.assertEqual(sent["status"], "ALERT_SENT")
-        self.assertEqual([(a["serviceType"], a["status"]) for a in sent["alerts"]], [("POLICE", "SENT"), ("AMBULANCE", "SENT")])
+        self.assertEqual(
+            [(a["serviceType"], a["status"]) for a in sent["alerts"]],
+            [("POLICE", "SENT"), ("AMBULANCE", "SENT"), ("POMPIERS", "SENT")],
+        )
 
     def test_service_operators_only_see_their_own_service(self):
         incident = self.send(["POLICE"])

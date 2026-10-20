@@ -433,6 +433,24 @@ Dépannage
 Reason: Vehicle removal
 ```
 
+Only the services the situation needs are suggested, from what the AI saw:
+
+| Service | Suggested when |
+|---|---|
+| Police | Always: secure the scene and manage traffic |
+| Ambulance / SAMU | A person on the scene, an overturned or burning vehicle, or 3+ vehicles |
+| Pompiers | A vehicle on fire or overturned |
+| Dépannage | 2+ vehicles collided, or a vehicle overturned or burnt |
+
+For each selected service, the screen also shows the **nearest station**: the closest police station, hospital emergency department, fire station or tow company, with a rough driving time. The admin can pick another of the 3 nearest.
+
+```text
+Police     → Commissariat Paris 8e · 320 m · ~1 min
+Ambulance  → Hôtel-Dieu (Paris 4e) · 2.4 km · ~6 min
+```
+
+The AI decides *which services* are needed; *which station* is a distance calculation. Station data comes from OpenStreetMap (see [backend/README.md](backend/README.md)).
+
 ---
 
 ## 14. Human Validation
@@ -1481,6 +1499,7 @@ POST /api/operators/heartbeat
 ```text
 GET  /api/incidents
 GET  /api/incidents/{id}
+GET  /api/incidents/{id}/stations
 POST /api/incidents
 POST /api/incidents/{id}/assign
 POST /api/incidents/{id}/send

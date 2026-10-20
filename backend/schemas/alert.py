@@ -5,6 +5,7 @@ from typing import Literal
 
 from ..models import AlertStatus, ServiceType, Severity
 from . import Schema
+from .station import StationOut
 
 
 class AlertStatusUpdate(Schema):
@@ -25,6 +26,7 @@ class AlertOut(Schema):
     vehicles: int
     possible_injuries: bool
     assigned_operator: str | None  # display name
+    station: StationOut | None  # the station called; None when there was no station data
     sent_at: datetime
     accepted_at: datetime | None
     resolved_at: datetime | None

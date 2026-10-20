@@ -2,6 +2,7 @@ import importlib.util
 import tempfile
 import unittest
 from pathlib import Path
+from typing import Any
 
 
 @unittest.skipUnless(importlib.util.find_spec("cv2"), "opencv-python not installed")
@@ -17,7 +18,7 @@ class ClipRecorderTest(unittest.TestCase):
         image = np.zeros((48, 64, 3), np.uint8)
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "clip.mp4"
-            finished = []
+            finished: list[tuple[Path, Any]] = []
             for i in range(30):
                 finished += recorder.push(image)
                 if i == 14:

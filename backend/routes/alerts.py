@@ -4,7 +4,8 @@ from ..database import utcnow
 from ..deps import DB, CurrentOperator, ServiceOperator
 from ..models import Alert, AlertStatus, Operator
 from ..schemas.alert import AlertOut, AlertStatusUpdate
-from ..services import alert_service
+from ..services import alert_service, station_service
+from .incidents import station_out
 
 router = APIRouter(prefix="/alerts", tags=["alerts"])
 
@@ -24,6 +25,7 @@ def alert_out(alert: Alert, viewer: Operator) -> AlertOut:
         vehicles=incident.vehicles,
         possible_injuries=incident.possible_injuries,
         assigned_operator=alert.assigned_operator.display_name if alert.assigned_operator else None,
+        station=station_out(station_service.sent_station(alert)),
         sent_at=alert.sent_at,
         accepted_at=alert.accepted_at,
         resolved_at=alert.resolved_at,

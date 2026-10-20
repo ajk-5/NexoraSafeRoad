@@ -9,5 +9,5 @@ router = APIRouter(prefix="/statistics", tags=["statistics"])
 
 
 @router.get("", response_model=StatisticsOut)
-def statistics(db: DB, _: AdminOperator):
+def statistics(db: DB, _: AdminOperator) -> StatisticsOut:
     return statistics_service.compute(db, utcnow())

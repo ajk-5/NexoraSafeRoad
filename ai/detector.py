@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Protocol, cast
 
 if TYPE_CHECKING:
     import numpy as np
@@ -44,6 +44,50 @@ class FrameAnalysis:
         return sum(d.label == PERSON_LABEL for d in self.detections)
 
 
+# The part of ultralytics we use. Ultralytics is only partly typed, so the model is
+# cast to this once instead of letting unknown types spread through the code.
+class _Tensor(Protocol):
+    def tolist(self) -> list[Any]: ...
+
+
+class _Boxes(Protocol):
+    @property
+    def cls(self) -> _Tensor: ...
+    @property
+    def conf(self) -> _Tensor: ...
+    @property
+    def xyxy(self) -> _Tensor: ...
+
+
+class _Result(Protocol):
+    @property
+    def names(self) -> dict[int, str]: ...
+    @property
+    def boxes(self) -> _Boxes | None: ...  # None for non-detection models
+
+
+class YoloModel(Protocol):
+    def predict(self, source: np.ndarray, *, conf: float, device: str | None, verbose: bool) -> list[_Result]: ...
+
+
+def load_model(weights: str) -> YoloModel:
+    from ultralytics import YOLO  # lazy: keeps the pure logic importable without torch
+
+    return cast(YoloModel, YOLO(weights))
+
+
+def predict(model: YoloModel, image: np.ndarray, conf: float, device: str | None = None) -> list[Detection]:
+    """Detections in one frame, with lower-cased labels and boxes in pixels."""
+    result = model.predict(image, conf=conf, device=device, verbose=False)[0]
+    boxes = result.boxes
+    if boxes is None:
+        return []
+    return [
+        Detection(result.names[int(cls)].lower(), float(score), tuple(xyxy))
+        for cls, score, xyxy in zip(boxes.cls.tolist(), boxes.conf.tolist(), boxes.xyxy.tolist())
+    ]
+
+
 class AccidentDetector:
     """Runs YOLO on a frame.
 
@@ -58,13 +102,11 @@ class AccidentDetector:
         object_model: str,
         accident_model: str | None = None,
         conf: float = 0.4,
-        accident_conf: float = 0.5,
+        accident_conf: float = 0.25,
         device: str | None = None,
     ):
-        from ultralytics import YOLO  # lazy: keeps the pure logic importable without torch
-
-        self._objects = YOLO(object_model)
-        self._accidents = YOLO(accident_model) if accident_model else None
+        self._objects = load_model(object_model)
+        self._accidents = load_model(accident_model) if accident_model else None
         self.conf = conf
         self.accident_conf = accident_conf
         self.device = device
@@ -76,14 +118,14 @@ class AccidentDetector:
     def analyze(self, image: np.ndarray) -> FrameAnalysis:
         detections = [
             d
-            for d in self._predict(self._objects, image, self.conf)
+            for d in predict(self._objects, image, self.conf, self.device)
             if d.label in VEHICLE_LABELS or d.label == PERSON_LABEL
         ]
         if self._accidents is None:
             return FrameAnalysis(detections, accident_confidence=collision_score(detections))
 
         events = [
-            d for d in self._predict(self._accidents, image, self.accident_conf) if d.label in EVENT_LABELS
+            d for d in predict(self._accidents, image, self.accident_conf, self.device) if d.label in EVENT_LABELS
         ]
         return FrameAnalysis(
             detections + events,
@@ -91,14 +133,6 @@ class AccidentDetector:
             fire=any(d.label in FIRE_LABELS for d in events),
             overturned=any(d.label in OVERTURNED_LABELS for d in events),
         )
-
-    def _predict(self, model, image: np.ndarray, conf: float) -> list[Detection]:
-        result = model.predict(image, conf=conf, device=self.device, verbose=False)[0]
-        boxes = result.boxes
-        return [
-            Detection(result.names[int(cls)].lower(), float(score), tuple(xyxy))
-            for cls, score, xyxy in zip(boxes.cls.tolist(), boxes.conf.tolist(), boxes.xyxy.tolist())
-        ]
 
 
 def iou(a: tuple[float, float, float, float], b: tuple[float, float, float, float]) -> float:

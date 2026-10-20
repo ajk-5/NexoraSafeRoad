@@ -11,6 +11,7 @@ from .. import config
 from ..errors import Conflict, NotFound
 from ..models import LOCKED_STATUSES, Alert, Incident, IncidentStatus, Operator, ServiceType
 from ..schemas.incident import IncidentCreate
+from . import ai_service, station_service
 from .assignment_service import assign_waiting_incidents, free_operator, touch
 
 _LOAD = (
@@ -21,7 +22,8 @@ _LOAD = (
 
 def create(db: Session, report: IncidentCreate, now: datetime) -> Incident:
     """Store an incident reported by the AI and hand it to an available admin."""
-    services = [s.value for s in _unique(report.responders)]
+    suggestion = ai_service.suggest(report.vehicles, report.people, report.fire, report.overturned)
+    services = [s.value for s, _ in suggestion]
     incident = Incident(
         camera_id=report.camera_id,
         latitude=report.latitude,
@@ -84,20 +86,44 @@ def start_review(db: Session, incident_id: int, admin: Operator, now: datetime) 
     return incident
 
 
-def save_draft(db: Session, incident_id: int, admin: Operator, services: list[ServiceType], now: datetime) -> Incident:
+def save_draft(
+    db: Session,
+    incident_id: int,
+    admin: Operator,
+    services: list[ServiceType],
+    stations: dict[ServiceType, str],
+    now: datetime,
+) -> Incident:
     incident = _lock_for(db, incident_id, admin)
-    incident.selected_services = [s.value for s in _unique(services)]
+    services = _unique(services)
+    incident.selected_services = [s.value for s in services]
+    incident.selected_stations = {
+        s.value: station_service.get(stations[s], s).id for s in services if s in stations
+    }
     incident.status = IncidentStatus.UNDER_REVIEW
     touch(incident, now)
     return incident
 
 
-def send_alert(db: Session, incident_id: int, admin: Operator, services: list[ServiceType], now: datetime) -> Incident:
-    """Alert the selected services. This ends the admin's review."""
+def send_alert(
+    db: Session,
+    incident_id: int,
+    admin: Operator,
+    services: list[ServiceType],
+    stations: dict[ServiceType, str],
+    now: datetime,
+) -> Incident:
+    """Alert the selected services, each at the station the admin picked or the nearest one.
+    This ends the admin's review."""
     incident = _lock_for(db, incident_id, admin)
     services = _unique(services)
+    alerts = [
+        _alert(incident, s, station_service.choose(s, incident.latitude, incident.longitude, stations.get(s)), now)
+        for s in services
+    ]
     incident.selected_services = [s.value for s in services]
-    db.add_all(Alert(incident=incident, service_type=s, sent_at=now) for s in services)
+    incident.selected_stations = {a.service_type.value: a.station_id for a in alerts if a.station_id is not None}
+    db.add_all(alerts)
     _close_review(db, incident, admin, IncidentStatus.ALERT_SENT, now)
     return incident
 
@@ -133,6 +159,17 @@ def _close_review(db: Session, incident: Incident, admin: Operator, status: Inci
     db.flush()
     free_operator(db, admin)
     assign_waiting_incidents(db, now)
+
+
+def _alert(incident: Incident, service: ServiceType, station: station_service.Station | None, now: datetime) -> Alert:
+    alert = Alert(incident=incident, service_type=service, sent_at=now)
+    if station is not None:
+        alert.station_id = station.id
+        alert.station_name = station.name
+        alert.station_address = station.address
+        alert.station_latitude = station.latitude
+        alert.station_longitude = station.longitude
+    return alert
 
 
 def _unique(services: list[ServiceType]) -> list[ServiceType]:
