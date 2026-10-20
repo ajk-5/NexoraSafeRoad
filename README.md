@@ -1548,7 +1548,7 @@ For the MVP, the accident model should focus on reliable incident detection rath
 
 A single frame should not automatically trigger an incident.
 
-Example:
+### Authentication
 
 ```text
 Frame 1 → Accident 88%
@@ -1574,7 +1574,7 @@ This helps reduce false positives.
 
 The MVP can initially use simple rules rather than a separate AI severity model.
 
-Example:
+### Alerts
 
 ```python
 def calculate_severity(
@@ -1642,6 +1642,8 @@ Operator Updates Status
    ↓
 Incident Resolved
 ```
+
+For the MVP, the accident model should focus on reliable incident detection rather than many classes.
 
 ---
 
@@ -1744,6 +1746,8 @@ ON_SCENE
 RESOLVED
 ```
 
+A dedicated AI severity model can be added later.
+
 ---
 
 ## 56. Key Design Rule
@@ -1773,6 +1777,12 @@ It helps them react faster while keeping a human in control.
 
 **Nexora SafeRoad**
 
-SafeCity / DataCity Project 
+SafeCity / DataCity Project
 
 **EFREI — 2026**
+
+---
+
+## Frontend
+
+The role-based React + TypeScript operator console lives in [`frontend/`](frontend/README.md). Start the FastAPI backend as described in [`backend/README.md`](backend/README.md), then run `npm install` and `npm run dev` from `frontend/`.
