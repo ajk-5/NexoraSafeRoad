@@ -2,15 +2,17 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from pydantic import AwareDatetime, Field, field_validator
+from pydantic import AwareDatetime, Field
 
 from ..models import AlertStatus, IncidentStatus, ServiceType, Severity
 from . import Schema
+from .station import StationOut
 
 
 class IncidentCreate(Schema):
-    """An incident report from the AI pipeline (`build_incident` in ai/main.py).
-    Extra fields it sends (type, video_time, clip_path...) are ignored."""
+    """An incident report from the AI pipeline (`build_incident` in ai/main.py): what it saw.
+    The services to alert are decided from this (services/ai_service.py). Extra fields it
+    sends (type, video_time, clip_path, and `responders` from older versions) are ignored."""
 
     camera_id: str = Field(min_length=1, max_length=64)
     latitude: float = Field(ge=-90, le=90)
@@ -22,21 +24,17 @@ class IncidentCreate(Schema):
     people: int = Field(ge=0)
     fire: bool = False
     overturned: bool = False
-    responders: list[ServiceType] = []  # the AI's suggested services
     detected_at: AwareDatetime | None = None
-
-    @field_validator("responders", mode="before")
-    @classmethod
-    def _uppercase(cls, value):
-        # The AI uses lower-case service names ("police", "depannage").
-        return [s.upper() if isinstance(s, str) else s for s in value] if isinstance(value, list) else value
 
 
 class ServiceSelection(Schema):
     services: list[ServiceType]
+    # The station picked for a service (GET /incidents/{id}/stations); a selected service
+    # left out here gets its nearest station.
+    stations: dict[ServiceType, str] = {}
 
 
-class SendAlertRequest(Schema):
+class SendAlertRequest(ServiceSelection):
     services: list[ServiceType] = Field(min_length=1)
 
 
@@ -50,6 +48,7 @@ class IncidentAlert(Schema):
     service_type: ServiceType
     status: AlertStatus
     assigned_operator: str | None  # display name
+    station: StationOut | None  # who was called; None when there was no station data
     sent_at: datetime
     accepted_at: datetime | None
     resolved_at: datetime | None
@@ -78,4 +77,5 @@ class IncidentOut(Schema):
     can_edit: bool  # false means read-only for this viewer
     suggested_services: list[SuggestedService]
     selected_services: list[ServiceType]
+    selected_stations: dict[ServiceType, str]  # the admin's station choices so far
     alerts: list[IncidentAlert]

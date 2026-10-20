@@ -4,7 +4,7 @@ from fastapi import APIRouter, Body, Depends
 
 from ..database import utcnow
 from ..deps import DB, AdminOperator, CurrentOperator, ai_client
-from ..models import Incident, IncidentStatus, Operator
+from ..models import Incident, IncidentStatus, Operator, ServiceType
 from ..schemas.incident import (
     IncidentAlert,
     IncidentCreate,
@@ -13,7 +13,8 @@ from ..schemas.incident import (
     ServiceSelection,
     SuggestedService,
 )
-from ..services import ai_service, incident_service
+from ..schemas.station import ServiceStations, StationOut
+from ..services import ai_service, incident_service, station_service
 
 router = APIRouter(prefix="/incidents", tags=["incidents"])
 
@@ -41,15 +42,17 @@ def incident_out(incident: Incident, viewer: Operator | None = None) -> Incident
         assigned_admin=incident.assigned_admin.display_name if incident.assigned_admin else None,
         can_edit=viewer is not None and incident_service.can_edit(incident, viewer),
         suggested_services=[
-            SuggestedService(service=s, reason=r) for s, r in ai_service.explain(incident.suggested_services)
+            SuggestedService(service=s, reason=r) for s, r in ai_service.explain(incident)
         ],
-        selected_services=incident.selected_services,
+        selected_services=[ServiceType(s) for s in incident.selected_services],
+        selected_stations={ServiceType(s): i for s, i in (incident.selected_stations or {}).items()},
         alerts=[
             IncidentAlert(
                 id=a.id,
                 service_type=a.service_type,
                 status=a.status,
                 assigned_operator=a.assigned_operator.display_name if a.assigned_operator else None,
+                station=station_out(station_service.sent_station(a)),
                 sent_at=a.sent_at,
                 accepted_at=a.accepted_at,
                 resolved_at=a.resolved_at,
@@ -57,6 +60,10 @@ def incident_out(incident: Incident, viewer: Operator | None = None) -> Incident
             for a in incident.alerts
         ],
     )
+
+
+def station_out(station: station_service.Nearby | None) -> StationOut | None:
+    return None if station is None else StationOut.model_validate(station)
 
 
 @router.get("", response_model=list[IncidentOut])
@@ -67,6 +74,23 @@ def list_incidents(db: DB, viewer: CurrentOperator, status: IncidentStatus | Non
 @router.get("/{incident_id}", response_model=IncidentOut)
 def get_incident(incident_id: int, db: DB, viewer: CurrentOperator):
     return incident_out(incident_service.get_visible(db, viewer, incident_id), viewer)
+
+
+@router.get("/{incident_id}/stations", response_model=list[ServiceStations])
+def nearest_stations(incident_id: int, db: DB, admin: AdminOperator):
+    """For each service, the stations nearest to the incident, nearest first: the admin picks
+    who responds (the nearest one unless they choose another)."""
+    incident = incident_service.get_visible(db, admin, incident_id)
+    return [
+        ServiceStations(
+            service=service,
+            stations=[
+                StationOut.model_validate(n)
+                for n in station_service.nearest(service, incident.latitude, incident.longitude)
+            ],
+        )
+        for service in ServiceType
+    ]
 
 
 @router.post("", response_model=IncidentOut, status_code=201, dependencies=[Depends(ai_client)])
@@ -95,14 +119,14 @@ def start_review(incident_id: int, db: DB, admin: AdminOperator):
 
 @router.post("/{incident_id}/draft", response_model=IncidentOut)
 def save_draft(incident_id: int, body: ServiceSelection, db: DB, admin: AdminOperator):
-    incident = incident_service.save_draft(db, incident_id, admin, body.services, utcnow())
+    incident = incident_service.save_draft(db, incident_id, admin, body.services, body.stations, utcnow())
     db.commit()
     return incident_out(incident, admin)
 
 
 @router.post("/{incident_id}/send", response_model=IncidentOut)
 def send_alert(incident_id: int, body: SendAlertRequest, db: DB, admin: AdminOperator):
-    incident = incident_service.send_alert(db, incident_id, admin, body.services, utcnow())
+    incident = incident_service.send_alert(db, incident_id, admin, body.services, body.stations, utcnow())
     db.commit()
     return incident_out(incident, admin)
 

@@ -57,6 +57,7 @@ class AccidentConfirmerTest(unittest.TestCase):
         confirmer = AccidentConfirmer(required_frames=2)
         confirmer.update(frame(0.6, vehicles=1, people=2))
         result = confirmer.update(frame(1.0, vehicles=3, people=0))
+        assert result is not None
         self.assertAlmostEqual(result.confidence, 0.8)
         self.assertEqual(result.vehicles, 3)
         self.assertEqual(result.people, 2)

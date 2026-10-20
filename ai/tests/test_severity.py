@@ -1,6 +1,6 @@
 import unittest
 
-from ai.severity import RESPONDERS, Severity, classify
+from ai.severity import Severity, classify
 
 
 class ClassifyTest(unittest.TestCase):
@@ -18,11 +18,6 @@ class ClassifyTest(unittest.TestCase):
     def test_fire_or_overturned_is_always_high(self):
         self.assertEqual(classify(vehicles=1, people=0, fire=True), Severity.HIGH)
         self.assertEqual(classify(vehicles=1, people=0, overturned=True), Severity.HIGH)
-
-    def test_every_level_has_responders(self):
-        for level in Severity:
-            self.assertIn("police", RESPONDERS[level])
-        self.assertIn("pompiers", RESPONDERS[Severity.HIGH])
 
 
 if __name__ == "__main__":

@@ -17,24 +17,27 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from . import config
-from .database import Base, SessionLocal, engine
+from .database import Base, SessionLocal, add_missing_columns, engine, utcnow
 from .errors import ServiceError
-from .routes import alerts, auth, incidents, operators, statistics
-from .seed import seed_demo_operators
-from .services import assignment_service
+from .routes import alerts, auth, incidents, operators, statistics, training
+from .seed import seed_demo_operators, seed_model_registry
+from .services import assignment_service, station_service, training_service
 
 log = logging.getLogger("saferoad.backend")
 
 
 def sweep_once() -> None:
     with SessionLocal() as db:
-        assignment_service.sweep(db)
+        now = utcnow()
+        assignment_service.sweep(db, now)
+        training_service.fail_stalled_jobs(db, now)
         db.commit()
 
 
 async def sweep_forever() -> None:
     """Every SWEEP_INTERVAL seconds: mark silent operators OFFLINE, free their
-    incidents and give waiting incidents to available admins."""
+    incidents, give waiting incidents to available admins, and fail training jobs
+    whose worker stopped responding."""
     while True:
         await asyncio.sleep(config.SWEEP_INTERVAL)
         try:
@@ -47,9 +50,13 @@ async def sweep_forever() -> None:
 async def lifespan(app: FastAPI):
     # No migrations yet: tables are created on startup. Add Alembic once the schema settles.
     Base.metadata.create_all(engine)
+    add_missing_columns(engine)
+    station_service.load()
     config.MEDIA_DIR.mkdir(parents=True, exist_ok=True)
-    if config.SEED_DEMO_OPERATORS:
-        with SessionLocal() as db:
+    training_service.uploads_dir().mkdir(parents=True, exist_ok=True)
+    with SessionLocal() as db:
+        seed_model_registry(db)
+        if config.SEED_DEMO_OPERATORS:
             seed_demo_operators(db)
     sweeper = asyncio.create_task(sweep_forever()) if config.SWEEP_INTERVAL > 0 else None
     yield
@@ -73,12 +80,12 @@ async def service_error(request: Request, exc: ServiceError) -> JSONResponse:
     return JSONResponse({"error": exc.error, "message": exc.message}, status_code=exc.status_code)
 
 
-for module in (auth, operators, incidents, alerts, statistics):
+for module in (auth, operators, incidents, alerts, statistics, training):
     app.include_router(module.router, prefix="/api")
 
 app.mount("/media", StaticFiles(directory=config.MEDIA_DIR, check_dir=False), name="media")
 
 
 @app.get("/api/health", tags=["health"])
-def health() -> dict:
+def health() -> dict[str, str]:
     return {"status": "ok"}

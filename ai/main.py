@@ -16,14 +16,17 @@ from pathlib import Path
 import cv2
 import numpy as np
 
-from .alerts import send_incident, simulate_dispatch
+from . import model_store
+from .alerts import IncidentReport, log_incident, send_incident
+from .backend_client import BackendClient, BackendError
 from .camera import CameraInfo, VideoSource
 from .clip_recorder import ClipRecorder
 from .detector import EVENT_LABELS, AccidentConfirmer, AccidentDetector, ConfirmedAccident, FrameAnalysis
-from .severity import RESPONDERS, classify
+from .severity import classify
 
 log = logging.getLogger("saferoad.ai")
 AI_DIR = Path(__file__).resolve().parent
+ACCIDENT_MODEL = AI_DIR / "model" / "accident_model.pt"  # see ai/download_models.py
 
 
 def parse_args() -> argparse.Namespace:
@@ -33,7 +36,11 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--lat", type=float, default=48.8566, help="camera latitude (simulated for the MVP)")
     p.add_argument("--lon", type=float, default=2.3522, help="camera longitude (simulated for the MVP)")
     p.add_argument("--object-model", default=str(AI_DIR / "model" / "yolo11n.pt"), help="COCO YOLO weights")
-    p.add_argument("--accident-model", help="YOLO weights trained on our accident dataset")
+    p.add_argument(
+        "--accident-model",
+        help="YOLO weights trained on accidents (default: the model active on the backend, else model/accident_model.pt)",
+    )
+    p.add_argument("--accident-conf", type=float, default=0.25, help="minimum accident confidence in a frame")
     p.add_argument("--confirm-frames", type=int, default=5, help="consecutive frames needed to confirm")
     p.add_argument("--clip-seconds", type=float, default=10.0, help="footage kept before and after")
     p.add_argument("--cooldown", type=float, default=30.0, help="seconds before this camera can report again")
@@ -45,7 +52,24 @@ def parse_args() -> argparse.Namespace:
     return p.parse_args()
 
 
-def build_incident(camera: CameraInfo, accident: ConfirmedAccident, video_time: float) -> dict:
+def choose_accident_model(args: argparse.Namespace) -> str | None:
+    """--accident-model, else the model an admin activated on the AI Training page, else the local file."""
+    if args.accident_model:
+        return str(args.accident_model)
+    if args.backend:
+        client = BackendClient(args.backend, args.api_key, timeout=120)
+        try:
+            active = client.get("/api/training/worker/models/active")
+            if active:
+                path = model_store.local_model(client, active)
+                log.info("Using the active model from the backend: %s", active["name"])
+                return str(path)
+        except BackendError as exc:
+            log.warning("Could not get the active model from the backend (%s), using the local one", exc)
+    return str(ACCIDENT_MODEL) if ACCIDENT_MODEL.exists() else None
+
+
+def build_incident(camera: CameraInfo, accident: ConfirmedAccident, video_time: float) -> IncidentReport:
     severity = classify(accident.vehicles, accident.people, accident.fire, accident.overturned)
     return {
         "type": "traffic_accident",
@@ -58,16 +82,15 @@ def build_incident(camera: CameraInfo, accident: ConfirmedAccident, video_time: 
         "people": accident.people,
         "fire": accident.fire,
         "overturned": accident.overturned,
-        "responders": RESPONDERS[severity],
         "detected_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "video_time": round(video_time, 1),
     }
 
 
-def deliver(incident: dict, clip_path: Path, backend_url: str | None, api_key: str) -> None:
+def deliver(incident: IncidentReport, clip_path: Path, backend_url: str | None, api_key: str) -> None:
     incident["clip_path"] = str(clip_path)
     clip_path.with_suffix(".json").write_text(json.dumps(incident, indent=2))
-    simulate_dispatch(incident)
+    log_incident(incident)
     if backend_url:
         send_incident(incident, clip_path, backend_url, api_key)
 
@@ -84,9 +107,11 @@ def draw(frame: np.ndarray, analysis: FrameAnalysis) -> None:
 
 def run(args: argparse.Namespace) -> None:
     camera = CameraInfo(args.camera_id, args.lat, args.lon)
-    detector = AccidentDetector(args.object_model, args.accident_model, device=args.device)
+    detector = AccidentDetector(
+        args.object_model, choose_accident_model(args), accident_conf=args.accident_conf, device=args.device
+    )
     if detector.uses_heuristic:
-        log.warning("No --accident-model: using the vehicle-overlap placeholder, expect false positives")
+        log.warning("No accident model: using the vehicle-overlap placeholder, expect false positives")
     confirmer = AccidentConfirmer(args.confirm_frames)
     output = Path(args.output)
 

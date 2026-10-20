@@ -1,0 +1,12 @@
+{
+  "source": "Test stations around the default camera position (48.8566, 2.3522); no DEPANNAGE on purpose",
+  "stations": [
+    {"id": "test:police-near", "service": "POLICE", "name": "Commissariat Near", "address": "1 Rue A, 75004 Paris", "latitude": 48.8600, "longitude": 2.3560},
+    {"id": "test:police-mid", "service": "POLICE", "name": "Commissariat Mid", "address": null, "latitude": 48.8700, "longitude": 2.3600},
+    {"id": "test:police-far", "service": "POLICE", "name": "Commissariat Far", "address": null, "latitude": 48.8900, "longitude": 2.3800},
+    {"id": "test:police-farthest", "service": "POLICE", "name": "Commissariat Farthest", "address": null, "latitude": 48.9500, "longitude": 2.4000},
+    {"id": "test:hospital", "service": "AMBULANCE", "name": "Hôpital Test", "address": "2 Rue B, 75004 Paris", "latitude": 48.8530, "longitude": 2.3490},
+    {"id": "test:fire-near", "service": "POMPIERS", "name": "Centre de secours Near", "address": null, "latitude": 48.8590, "longitude": 2.3620},
+    {"id": "test:fire-far", "service": "POMPIERS", "name": "Centre de secours Far", "address": null, "latitude": 48.8200, "longitude": 2.3000}
+  ]
+}

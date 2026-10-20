@@ -3,4 +3,5 @@ uvicorn[standard]>=0.30
 sqlalchemy>=2.1
 pydantic>=2.11
 psycopg[binary]>=3.2  # PostgreSQL driver
+pyyaml>=6.0  # reads data.yaml in uploaded training datasets
 httpx2  # used by FastAPI's TestClient in the tests

@@ -52,6 +52,22 @@ class AlertStatus(StrEnum):
     RESOLVED = "RESOLVED"
 
 
+class ModelSource(StrEnum):
+    PRETRAINED = "PRETRAINED"  # downloaded weights, kept by the AI side (ai/download_models.py)
+    TRAINED = "TRAINED"  # produced by a training job, stored by the backend
+
+
+class TrainingStatus(StrEnum):
+    QUEUED = "QUEUED"  # waiting for a training worker
+    RUNNING = "RUNNING"
+    COMPLETED = "COMPLETED"
+    FAILED = "FAILED"
+    CANCELLED = "CANCELLED"
+
+
+FINISHED_TRAINING_STATUSES = (TrainingStatus.COMPLETED, TrainingStatus.FAILED, TrainingStatus.CANCELLED)
+
+
 # The intervention flow, in order. An operator can only move an alert forward.
 ALERT_FLOW = list(AlertStatus)
 # A service operator is busy while holding an alert in one of these statuses.

@@ -37,6 +37,9 @@ class Incident(Base):
     # (starts as the recommendation, changed by "Save draft", final once the alert is sent).
     suggested_services: Mapped[list[str]] = mapped_column(JSON, default=list)
     selected_services: Mapped[list[str]] = mapped_column(JSON, default=list)
+    # The station the admin picked per service, e.g. {"POLICE": "osm:n123"}; a service with
+    # none gets its nearest station. Nullable only so existing databases can gain the column.
+    selected_stations: Mapped[dict[str, str] | None] = mapped_column(JSON, default=dict)
 
     status: Mapped[IncidentStatus] = mapped_column(enum_type(IncidentStatus), index=True)
     # Locked to this admin while status is ASSIGNED or UNDER_REVIEW; afterwards it records who decided.

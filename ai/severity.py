@@ -1,4 +1,7 @@
-"""Rule-based accident severity for the MVP (see "Accident Severity" in the README)."""
+"""Rule-based accident severity for the MVP (see "Severity Analysis" in the README).
+
+Which services to alert is decided by the backend from the same observations
+(backend/services/ai_service.py)."""
 from enum import Enum
 
 
@@ -6,14 +9,6 @@ class Severity(str, Enum):
     LOW = "LOW"
     MEDIUM = "MEDIUM"
     HIGH = "HIGH"
-
-
-# Services alerted (simulated) for each severity level.
-RESPONDERS: dict[Severity, list[str]] = {
-    Severity.LOW: ["police", "depannage"],
-    Severity.MEDIUM: ["police", "ambulance", "depannage"],
-    Severity.HIGH: ["police", "pompiers", "ambulance", "depannage"],
-}
 
 
 def classify(vehicles: int, people: int, fire: bool = False, overturned: bool = False) -> Severity:

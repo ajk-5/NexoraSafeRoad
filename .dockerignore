@@ -6,4 +6,6 @@ ai/output
 ai/model/*.pt
 backend/saferoad.db
 backend/media
+backend/training_data
+ai/training
 frontend/node_modules

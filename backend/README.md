@@ -55,6 +55,10 @@ Password for all of them: `saferoad`.
 | `LOCK_TIMEOUT`        | `120`                     | Seconds without activity before a lock expires  |
 | `SWEEP_INTERVAL`      | `10`                      | Seconds between timeout checks (`0` = off)      |
 | `MEDIA_DIR`           | `backend/media`           | Where incident clips are stored                 |
+| `TRAINING_DIR`        | `backend/training_data`   | Uploaded datasets and trained models            |
+| `MAX_DATASET_MB`      | `5000`                    | Largest dataset zip / model file accepted       |
+| `WORKER_TIMEOUT`      | `60`                      | Seconds before a silent training worker is offline |
+| `STATIONS_FILE`       | `backend/data/stations.json` | Police, fire, hospital and tow stations      |
 | `CORS_ORIGINS`        | `http://localhost:5173`   | Comma-separated frontend origins                |
 
 ## Using the API (for the frontend)
@@ -72,8 +76,9 @@ Admin flow:
 GET  /api/operators/me                 -> currentIncidentId = incident assigned to me
 GET  /api/incidents/{id}               -> canEdit=false means READ ONLY (another admin holds it)
 POST /api/incidents/{id}/review        when the page opens     (ASSIGNED -> UNDER_REVIEW)
-POST /api/incidents/{id}/draft         {services: [...]}       SAVE DRAFT
-POST /api/incidents/{id}/send          {services: [...]}       SEND ALERT
+GET  /api/incidents/{id}/stations      3 nearest stations per service, nearest first
+POST /api/incidents/{id}/draft         {services: [...], stations: {POLICE: "osm:n123"}}   SAVE DRAFT
+POST /api/incidents/{id}/send          {services: [...], stations: {...}}                  SEND ALERT
 POST /api/incidents/{id}/decline                               DECLINE
 POST /api/operators/pause | resume
 GET  /api/alerts, /api/statistics, /api/operators
@@ -113,4 +118,58 @@ Choices not spelled out in the main README:
 - An operator's current incident is computed from the incidents/alerts tables instead of
   being stored on the operator, so the two can never disagree.
 - `possibleInjuries` = a person was detected, or fire, or an overturned vehicle.
-- No migrations yet: tables are created at startup. Add Alembic before the schema has real data.
+- No migrations yet: tables are created at startup, and new nullable columns are added to an
+  existing database (`add_missing_columns`). Any other schema change needs Alembic.
+
+## AI suggested response
+
+The AI pipeline reports what it saw (vehicles, people, fire, overturned vehicle); the backend
+decides which services to suggest, with a reason for each (`services/ai_service.py`). Only the
+services the situation needs are suggested: Police always, Ambulance when someone may be hurt,
+Pompiers only for a fire or an overturned vehicle, Dépannage when a vehicle must be removed.
+A `responders` list sent by older AI versions is ignored.
+
+## Nearest stations
+
+For each service the AI suggests, the admin sees the station that would respond: the nearest
+one, or another of the 3 nearest. The AI decides *which services*; *which station* is a distance
+calculation, not AI. Each alert records the station called (`station` on alerts), which the
+service operator sees.
+
+- **Data**: `backend/data/stations.json`, about 950 stations across Ile-de-France from
+  OpenStreetMap (police stations and gendarmeries, hospitals with an emergency department,
+  fire stations, tow companies and impound lots). Refresh it with
+  `python -m backend.import_stations`; the backend only reads the file, so it never calls an
+  external service while running. The import leaves out places that don't respond to road
+  accidents (investigation brigades, eye and psychiatric hospitals, airport fire crews...), and
+  fills in missing towns and addresses from the national address database (IGN Geoplateforme).
+- **Dépannage is sparse**: few tow companies are mapped in OpenStreetMap (about 25 in the region),
+  so the nearest one can be several km away.
+- **Distances** are straight lines; drive times assume roads 1.4x longer than the straight line
+  at 35 km/h, an order of magnitude only (there is no routing).
+- Station data © OpenStreetMap contributors, [ODbL](https://www.openstreetmap.org/copyright).
+
+## AI training (admin "AI Training" page)
+
+Admins upload datasets, start training jobs, compare models and choose the **active** model,
+the one the detector uses. Training runs on the GPU machine in a separate worker:
+
+```bash
+.venv\Scripts\python -m ai.trainer --backend http://localhost:8000     # add --device 0 for the first GPU
+```
+
+- **Datasets** are YOLO-format zips (a Roboflow "YOLOv8" export): `data.yaml` plus `train/` and
+  `valid/` folders. The backend only reads the class names and counts the images. The worker
+  extracts images and labels only, and writes its own `data.yaml`: Ultralytics executes the
+  `download:` field of a dataset's yaml, so an uploaded one is never used.
+- **Jobs** fine-tune one of our models or a stock YOLO11 checkpoint. The worker claims queued jobs,
+  reports metrics after every epoch (shown live), and uploads `best.pt`. Cancelling stops after the
+  current epoch. A job whose worker stops responding is marked failed.
+- **Operator feedback**: frames of incidents an admin *declined* are added as background images
+  (false alarms the model should stop raising). Optionally, *confirmed* incidents are added with
+  boxes drawn by the active model.
+- **Models**: the pretrained YOLO11x is registered on first start (metrics as reported by its
+  author). A trained model is never activated automatically; an admin compares and decides. The
+  detector (`ai.main --backend ...`) loads the active model when it starts, checking its sha256.
+
+Worker endpoints (`/api/training/worker/...`) use the `X-API-Key` header, like the AI pipeline.

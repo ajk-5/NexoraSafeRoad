@@ -219,8 +219,22 @@ __marimo__/
 
 # Nexora SafeRoad AI
 ai/model/*.pt
+ai/model/*.part
+ai/model/trained/
+ai/training/
 ai/output/
 
 # Backend local development data
 backend/saferoad.db
 backend/media/
+backend/training_data/
+
+# Frontend
+node_modules/
+
+# Ultralytics default folders: its settings point them at the repository root
+weights/
+runs/
+
+# Test videos for the detector (too large for git)
+dataset/videos/
