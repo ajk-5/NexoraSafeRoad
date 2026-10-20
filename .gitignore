@@ -220,3 +220,7 @@ __marimo__/
 # Nexora SafeRoad AI
 ai/model/*.pt
 ai/output/
+
+# Backend local development data
+backend/saferoad.db
+backend/media/

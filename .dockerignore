@@ -1,0 +1,9 @@
+.git
+.venv
+**/__pycache__
+dataset
+ai/output
+ai/model/*.pt
+backend/saferoad.db
+backend/media
+frontend/node_modules
