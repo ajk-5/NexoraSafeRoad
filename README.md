@@ -1776,3 +1776,9 @@ It helps them react faster while keeping a human in control.
 SafeCity / DataCity Project
 
 **EFREI — 2026**
+
+---
+
+## Frontend
+
+The role-based React + TypeScript operator console lives in [`frontend/`](frontend/README.md). Start the FastAPI backend as described in [`backend/README.md`](backend/README.md), then run `npm install` and `npm run dev` from `frontend/`.
