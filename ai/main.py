@@ -9,6 +9,7 @@ import argparse
 import json
 import logging
 import math
+import os
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -38,6 +39,7 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--cooldown", type=float, default=30.0, help="seconds before this camera can report again")
     p.add_argument("--output", default=str(AI_DIR / "output"), help="folder for clips and incident JSON")
     p.add_argument("--backend", help="backend base URL, e.g. http://localhost:8000")
+    p.add_argument("--api-key", default=os.environ.get("AI_API_KEY", "dev-ai-key"), help="backend AI_API_KEY")
     p.add_argument("--device", help="'0' for the first GPU or 'cpu' (default: auto)")
     p.add_argument("--show", action="store_true", help="display the annotated video (press q to quit)")
     return p.parse_args()
@@ -62,12 +64,12 @@ def build_incident(camera: CameraInfo, accident: ConfirmedAccident, video_time: 
     }
 
 
-def deliver(incident: dict, clip_path: Path, backend_url: str | None) -> None:
+def deliver(incident: dict, clip_path: Path, backend_url: str | None, api_key: str) -> None:
     incident["clip_path"] = str(clip_path)
     clip_path.with_suffix(".json").write_text(json.dumps(incident, indent=2))
     simulate_dispatch(incident)
     if backend_url:
-        send_incident(incident, backend_url)
+        send_incident(incident, clip_path, backend_url, api_key)
 
 
 def draw(frame: np.ndarray, analysis: FrameAnalysis) -> None:
@@ -105,7 +107,7 @@ def run(args: argparse.Namespace) -> None:
                 log.info("Accident confirmed at %.1fs (%s), recording clip", video_time, incident["severity"])
 
             for clip_path, incident in finished:
-                deliver(incident, clip_path, args.backend)
+                deliver(incident, clip_path, args.backend, args.api_key)
 
             if args.show:
                 draw(frame, analysis)
@@ -114,7 +116,7 @@ def run(args: argparse.Namespace) -> None:
                     break
 
         for clip_path, incident in recorder.flush():
-            deliver(incident, clip_path, args.backend)
+            deliver(incident, clip_path, args.backend, args.api_key)
 
     if args.show:
         cv2.destroyAllWindows()

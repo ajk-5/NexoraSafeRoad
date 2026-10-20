@@ -1,0 +1,6 @@
+fastapi>=0.143
+uvicorn[standard]>=0.30
+sqlalchemy>=2.1
+pydantic>=2.11
+psycopg[binary]>=3.2  # PostgreSQL driver
+httpx2  # used by FastAPI's TestClient in the tests
