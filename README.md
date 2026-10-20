@@ -1548,7 +1548,7 @@ For the MVP, the accident model should focus on reliable incident detection rath
 
 A single frame should not automatically trigger an incident.
 
-Example:
+### Authentication
 
 ```text
 Frame 1 → Accident 88%
@@ -1574,7 +1574,7 @@ This helps reduce false positives.
 
 The MVP can initially use simple rules rather than a separate AI severity model.
 
-Example:
+### Alerts
 
 ```python
 def calculate_severity(
@@ -1642,6 +1642,8 @@ Operator Updates Status
    ↓
 Incident Resolved
 ```
+
+For the MVP, the accident model should focus on reliable incident detection rather than many classes.
 
 ---
 
@@ -1743,6 +1745,8 @@ ON_SCENE
       ↓
 RESOLVED
 ```
+
+A dedicated AI severity model can be added later.
 
 ---
 
