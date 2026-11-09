@@ -40,11 +40,11 @@ function useNotifications(operator: Operator): { items: Item[]; count: number; e
       items.push({
         key: "waiting",
         to: `${homePath(operator.role)}?filter=waiting`,
-        title: `${waiting.length} incident${waiting.length === 1 ? "" : "s"} waiting for an admin`,
+        title: `${waiting.length} incident${waiting.length === 1 ? "" : "s"} waiting for an operator`,
         detail:
           operator.status === "PAUSED"
             ? "You are paused. Resume to receive incidents."
-            : "They are assigned automatically to the next available admin.",
+            : "They are assigned automatically to the next available operator.",
       });
     }
     const unopenedMine = mine?.status === "ASSIGNED" ? 1 : 0;

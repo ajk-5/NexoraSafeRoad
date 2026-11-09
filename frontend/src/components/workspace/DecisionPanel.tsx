@@ -32,9 +32,9 @@ interface Result {
 }
 
 /**
- * The admin's decision, one step at a time: confirm a real accident (or reject a false alarm),
+ * The operator's decision, one step at a time: confirm a real accident (or reject a false alarm),
  * then choose the services, then confirm sending the alert in a dialog. Only the actions
- * valid for the incident's state and this admin are shown, and success is only reported after
+ * valid for the incident's state and this operator are shown, and success is only reported after
  * the backend confirmed it.
  */
 export function DecisionPanel({ incident, viewer, selected, onSelect, nearby, chosen, onChooseStation, onChanged }: Props) {
@@ -44,7 +44,7 @@ export function DecisionPanel({ incident, viewer, selected, onSelect, nearby, ch
   const [dialog, setDialog] = useState<"dispatch" | "reject" | null>(null);
   const [dialogError, setDialogError] = useState<string | null>(null);
 
-  // The incident left this admin's hands (decided, or the lock moved): close any open dialog.
+  // The incident left this operator's hands (decided, or the lock moved): close any open dialog.
   const editable = stage.kind === "verify" || stage.kind === "dispatch";
   useEffect(() => {
     if (!editable) setDialog(null);
@@ -260,8 +260,8 @@ function WaitingNotice({ incident, viewer }: { incident: Incident; viewer: Props
     extra = ` You will receive new incidents after you finish ${incidentReference(viewer.currentIncidentId)}.`;
   }
   return (
-    <Notice tone="info" title="Waiting for an available admin">
-      It is assigned automatically to the next available admin, most severe first.{extra}
+    <Notice tone="info" title="Waiting for an available operator">
+      It is assigned automatically to the next available operator, most severe first.{extra}
     </Notice>
   );
 }
@@ -271,8 +271,8 @@ function ReadOnlyNotice({ stage }: { stage: Extract<ReviewStage, { kind: "readOn
     <div className="lock-notice">
       <Icon name="lock" />
       <div>
-        <div className="strong">Currently handled by {stage.by ?? "another admin"}</div>
-        <p className="small muted">You can view this incident, but only the admin it is assigned to can decide. Nothing you do here changes it.</p>
+        <div className="strong">Currently handled by {stage.by ?? "another operator"}</div>
+        <p className="small muted">You can view this incident, but only the operator it is assigned to can decide. Nothing you do here changes it.</p>
       </div>
     </div>
   );

@@ -447,7 +447,7 @@ function NewJobPanel({ datasets, models, overview }: { datasets: TrainingDataset
         <label className="check">
           <input type="checkbox" checked={useFalseAlarms} onChange={(event) => setUseFalseAlarms(event.target.checked)} />
           <span>
-            Learn from false alarms: frames of the {falseAlarms} incident{falseAlarms === 1 ? "" : "s"} admins rejected
+            Learn from false alarms: frames of the {falseAlarms} incident{falseAlarms === 1 ? "" : "s"} operators rejected
           </span>
         </label>
         <label className={`check${canUseConfirmed ? "" : " disabled"}`}>
@@ -561,7 +561,7 @@ function JobsPanel({ jobs, error, onRetry }: { jobs: TrainingJob[] | undefined; 
 type Verdict = "all" | "confirmed" | "rejected";
 
 /**
- * How admins judged the AI's detections. Each decision in the workspace is a label: a rejected
+ * How operators judged the AI's detections. Each decision in the workspace is a label: a rejected
  * incident is a false alarm, a confirmed one a real accident. Training jobs can learn from both.
  */
 function PredictionReview({ overview }: { overview: TrainingOverview | undefined }) {
@@ -578,7 +578,7 @@ function PredictionReview({ overview }: { overview: TrainingOverview | undefined
     <Card title="Prediction review" icon="check" flush>
       <div className="card-body stack">
         <p className="muted">
-          Every incident is an AI prediction. Admins mark it correct (confirm the accident) or incorrect (reject a false alarm) in the
+          Every incident is an AI prediction. Operators mark it correct (confirm the accident) or incorrect (reject a false alarm) in the
           workspace; those verdicts are the labels training jobs use.
           {overview && ` The server counts ${overview.feedback.falseAlarms} false alarm${overview.feedback.falseAlarms === 1 ? "" : "s"} and ${overview.feedback.confirmed} confirmed accident${overview.feedback.confirmed === 1 ? "" : "s"} with a clip.`}
         </p>
@@ -605,7 +605,7 @@ function PredictionReview({ overview }: { overview: TrainingOverview | undefined
         {() =>
           shown.length === 0 ? (
             <EmptyState icon="check" title="No reviewed prediction yet">
-              Admins build these labels when they confirm or reject incidents in their dashboard.
+              Operators build these labels when they confirm or reject incidents in their dashboard.
             </EmptyState>
           ) : (
             <ReviewTable incidents={shown} />

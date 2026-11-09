@@ -19,26 +19,26 @@ export function SuperadminAccounts() {
   const operators = usePolling(() => api.operators(), []);
   return (
     <>
-      <PageHeader description="Create accounts for admins and service operators, and see everyone's availability. Operators change their own availability with Pause / Resume." />
+      <PageHeader description="Create accounts for operators and service operators, and see everyone's availability. Operators change their own availability with Pause / Resume." />
       <CreateAccount onCreated={operators.reload} />
       <DataView data={operators.data} error={operators.error} onRetry={operators.reload}>
         {(list) => <OperatorsTable operators={list} me={me} />}
       </DataView>
       <Card title="How work is assigned" icon="info">
         <ul className="rules">
-          <li>A new incident goes straight to an <strong>available</strong> admin; with several, the one who waited longest gets it.</li>
+          <li>A new incident goes straight to an <strong>available</strong> operator; with several, the one who waited longest gets it.</li>
           <li>
             When nobody is available, incidents wait in a queue and are handed out <strong>most severe first</strong>, then oldest
             first.
           </li>
-          <li>An incident is locked to its admin: other admins can view it but not change it. The server enforces this.</li>
+          <li>An incident is locked to its operator: other operators can view it but not change it. The server enforces this.</li>
           <li>
-            <strong>Paused</strong> and <strong>offline</strong> operators get nothing new. Pausing keeps the work in hand; an admin can
+            <strong>Paused</strong> and <strong>offline</strong> operators get nothing new. Pausing keeps the work in hand; an operator can
             also return their incident to the queue.
           </li>
           <li>
-            An admin whose session stops responding (about 2 minutes by default) loses the lock, and the incident goes to the next
-            available admin.
+            An operator whose session stops responding (about 2 minutes by default) loses the lock, and the incident goes to the next
+            available operator.
           </li>
           <li>Super admins run the platform (accounts, AI training, statistics) and are never assigned incidents.</li>
         </ul>

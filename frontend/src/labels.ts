@@ -15,14 +15,14 @@ import type {
 export const ROLES: Role[] = ["ADMIN", "POLICE", "AMBULANCE", "POMPIERS", "DEPANNAGE", "SUPERADMIN"];
 export const SERVICES: ServiceType[] = ["POLICE", "AMBULANCE", "POMPIERS", "DEPANNAGE"];
 
-/** The emergency service a role works for, or null for admins and the super admin. */
+/** The emergency service a role works for, or null for operators and the super admin. */
 export function serviceOf(role: Role): ServiceType | null {
   return SERVICES.find((service) => service === role) ?? null;
 }
 
 export const ROLE_LABELS: Record<Role, string> = {
   SUPERADMIN: "Super admin",
-  ADMIN: "Admin",
+  ADMIN: "Operator",
   POLICE: "Police",
   AMBULANCE: "Ambulance",
   POMPIERS: "Firefighters",
@@ -68,11 +68,11 @@ export const INCIDENT_STATUS_LABELS: Record<IncidentStatus, string> = {
 /** One sentence per status, for tooltips and the incident summary. */
 export const INCIDENT_STATUS_HELP: Record<IncidentStatus, string> = {
   DETECTED: "The AI reported a possible accident.",
-  WAITING_FOR_OPERATOR: "No admin is available yet. It goes to the next available admin automatically.",
-  ASSIGNED: "Assigned to an admin, who has not opened it yet.",
-  UNDER_REVIEW: "An admin is watching the clip and deciding.",
+  WAITING_FOR_OPERATOR: "No operator is available yet. It goes to the next available operator automatically.",
+  ASSIGNED: "Assigned to an operator, who has not opened it yet.",
+  UNDER_REVIEW: "An operator is watching the clip and deciding.",
   ALERT_SENT: "Services were alerted. Waiting for a service operator to accept.",
-  DECLINED: "An admin rejected it as a false alarm. No service was alerted.",
+  DECLINED: "An operator rejected it as a false alarm. No service was alerted.",
   IN_PROGRESS: "At least one service operator accepted the alert and is responding.",
   RESOLVED: "Every alerted service marked its intervention resolved.",
 };
@@ -87,10 +87,10 @@ export const OPEN_INCIDENT_STATUSES: IncidentStatus[] = [
   "IN_PROGRESS",
 ];
 
-/** Incidents an admin still has to decide on. */
+/** Incidents an operator still has to decide on. */
 export const UNDECIDED_STATUSES: IncidentStatus[] = ["DETECTED", "WAITING_FOR_OPERATOR", "ASSIGNED", "UNDER_REVIEW"];
 
-/** Locked to one admin: only they can change it (backend LOCKED_STATUSES). */
+/** Locked to one operator: only they can change it (backend LOCKED_STATUSES). */
 export const LOCKED_STATUSES: IncidentStatus[] = ["ASSIGNED", "UNDER_REVIEW"];
 
 export const ALERT_STATUS_LABELS: Record<AlertStatus, string> = {

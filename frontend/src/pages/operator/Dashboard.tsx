@@ -64,7 +64,7 @@ export function OperatorDashboard() {
                   ? "You cannot accept new alerts while paused. Resume from the top bar when you are ready."
                   : fresh > 0
                     ? "Open a new alert on the left, check the clip and location, then accept it."
-                    : `New ${service} alerts appear on the left as soon as an admin sends them.`}
+                    : `New ${service} alerts appear on the left as soon as an operator sends them.`}
               </p>
             </div>
           ) : (

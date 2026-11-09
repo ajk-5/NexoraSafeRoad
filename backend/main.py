@@ -21,7 +21,7 @@ from . import config
 from .database import Base, SessionLocal, add_missing_columns, engine, utcnow
 from .errors import ServiceError
 from .routes import alerts, auth, incidents, live, operators, statistics, training
-from .seed import seed_demo_operators, seed_model_registry
+from .seed import seed_demo_operators, seed_model_registry, upgrade_demo_operator_names
 from .services import assignment_service, station_service, training_service
 
 log = logging.getLogger("saferoad.backend")
@@ -61,6 +61,7 @@ async def lifespan(app: FastAPI):
         seed_model_registry(db)
         if config.SEED_DEMO_OPERATORS:
             seed_demo_operators(db)
+        upgrade_demo_operator_names(db)
     sweeper = asyncio.create_task(sweep_forever()) if config.SWEEP_INTERVAL > 0 else None
     yield
     if sweeper:

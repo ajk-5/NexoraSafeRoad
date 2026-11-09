@@ -6,7 +6,7 @@ from unittest import mock
 
 from backend import config
 from backend.models import Operator, Role
-from backend.seed import seed_demo_operators
+from backend.seed import seed_demo_operators, upgrade_demo_operator_names
 from backend.tests.base import ApiTestCase
 
 NEW_ACCOUNT = {"username": "police2", "displayName": "Police Operator 02", "role": "POLICE", "password": "Three otters cross a river!"}
@@ -81,6 +81,20 @@ class AccountsTest(ApiTestCase):
 
 
 class SeedTest(ApiTestCase):
+    def test_demo_operator_labels_upgrade_without_changing_custom_names(self):
+        first = self.add_operator("admin1", Role.ADMIN)
+        second = self.add_operator("admin2", Role.ADMIN)
+        with self.Session() as db:
+            db.get(Operator, first).display_name = "Admin Operator 01"
+            db.get(Operator, second).display_name = "Dispatch team lead"
+            db.commit()
+            upgrade_demo_operator_names(db)
+            upgrade_demo_operator_names(db)
+            self.assertEqual(db.get(Operator, first).display_name, "Operator 01")
+            self.assertEqual(db.get(Operator, first).username, "admin1")
+            self.assertEqual(db.get(Operator, first).role, Role.ADMIN)
+            self.assertEqual(db.get(Operator, second).display_name, "Dispatch team lead")
+
     def test_an_existing_database_gets_the_demo_superadmin(self):
         self.add_operator("admin1", Role.ADMIN)  # created before the role existed
         with self.Session() as db, mock.patch.object(config, "DEMO_PASSWORD", NEW_ACCOUNT["password"]):

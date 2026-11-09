@@ -95,7 +95,7 @@ export function AccountMenu({ operator, onSignOut }: { operator: Operator; onSig
         >
           {operator.role === "ADMIN" ? (
             <p>
-              <strong>{incidentReference(held)}</strong> goes back to the queue and the next available admin gets it. Your
+              <strong>{incidentReference(held)}</strong> goes back to the queue and the next available operator gets it. Your
               confirmation of it is not kept.
             </p>
           ) : (

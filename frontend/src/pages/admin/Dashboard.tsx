@@ -14,8 +14,8 @@ import type { Operator } from "../../types/api";
 const FILTERS: QueueFilter[] = ["all", "waiting", "mine", "high"];
 
 /**
- * The admin's workspace: what is waiting, and the selected incident with everything needed to
- * decide on it. With no incident chosen, the one assigned to the admin opens by itself.
+ * The operator's workspace: what is waiting, and the selected incident with everything needed to
+ * decide on it. With no incident chosen, the one assigned to the operator opens by itself.
  */
 export function AdminDashboard() {
   const operator = useOperator();
@@ -101,7 +101,7 @@ function IdleWorkspace({ operator, waiting }: { operator: Operator; waiting: num
           <h2>You are paused</h2>
           <p>
             You receive no new incidents while paused.
-            {waiting > 0 && ` ${waiting} incident${waiting === 1 ? " is" : "s are"} waiting for an admin.`}
+            {waiting > 0 && ` ${waiting} incident${waiting === 1 ? " is" : "s are"} waiting for an operator.`}
           </p>
           <button type="button" className="btn btn-primary btn-lg" onClick={() => void resume()} disabled={busy}>
             <Icon name="play" />

@@ -16,7 +16,7 @@ interface Props {
 
 /**
  * Available / Paused. Pausing never silently drops work: with an incident or intervention in hand
- * the operator is told what happens to it, and an admin can hand their incident back to the queue.
+ * the operator is told what happens to it, and an operator can hand their incident back to the queue.
  */
 export function AvailabilityControl({ operator, onUpdate }: Props) {
   const [busy, setBusy] = useState(false);
@@ -30,7 +30,7 @@ export function AvailabilityControl({ operator, onUpdate }: Props) {
     setBusy(true);
     setError(null);
     try {
-      // Pause first: once paused, a released incident cannot come straight back to this admin.
+      // Pause first: once paused, a released incident cannot come straight back to this operator.
       onUpdate(await api.pause());
       if (release && held !== null) {
         try {
@@ -170,7 +170,7 @@ function PauseWithIncidentDialog({
           <strong>Keep it</strong> — it stays assigned to you and nobody else can change it. You can still finish it.
         </li>
         <li>
-          <strong>Return it to the queue</strong> — the next available admin gets it straight away (or it waits for one). Your
+          <strong>Return it to the queue</strong> — the next available operator gets it straight away (or it waits for one). Your
           confirmation is cleared, so they decide for themselves.
         </li>
       </ul>

@@ -28,7 +28,7 @@ def current_operator(db: DB, credentials: Annotated[HTTPAuthorizationCredentials
 
 def admin_operator(operator: Annotated[Operator, Depends(current_operator)]) -> Operator:
     if not operator.is_admin:
-        raise Forbidden("ADMIN_ONLY", "Only Admin Operators can do this.")
+        raise Forbidden("ADMIN_ONLY", "Only incident-review operators can do this.")
     return operator
 
 

@@ -71,15 +71,15 @@ export function buildTimeline(incident: Incident): TimelineEvent[] {
 
 /** What is happening now, without a time. */
 function pendingSteps(incident: Incident): TimelineEvent[] {
-  const admin = incident.assignedAdmin ?? "an admin";
+  const operator = incident.assignedAdmin ?? "an operator";
   switch (incident.status) {
     case "DETECTED":
     case "WAITING_FOR_OPERATOR":
-      return [{ key: "now", at: null, title: "Waiting for an available admin", tone: "pending" }];
+      return [{ key: "now", at: null, title: "Waiting for an available operator", tone: "pending" }];
     case "ASSIGNED":
-      return [{ key: "now", at: null, title: `Assigned to ${admin}`, detail: "Not opened yet", tone: "pending" }];
+      return [{ key: "now", at: null, title: `Assigned to ${operator}`, detail: "Not opened yet", tone: "pending" }];
     case "UNDER_REVIEW":
-      return [{ key: "now", at: null, title: `Being reviewed by ${admin}`, tone: "pending" }];
+      return [{ key: "now", at: null, title: `Being reviewed by ${operator}`, tone: "pending" }];
     case "ALERT_SENT":
     case "IN_PROGRESS":
       return incident.alerts

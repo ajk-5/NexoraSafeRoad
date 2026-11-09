@@ -60,9 +60,9 @@ function AnalyticsBody({ stats, incidents }: { stats: Statistics; incidents: Inc
         )}
         .
         {decisionSeconds !== null && (
-          <span title="From detection to the admin's decision, including time waiting in the queue (latest 100 incidents)">
+          <span title="From detection to the operator's decision, including time waiting in the queue (latest 100 incidents)">
             {" "}
-            Admins decide in <strong>{formatDuration(decisionSeconds, true)}</strong> on average
+            Operators decide in <strong>{formatDuration(decisionSeconds, true)}</strong> on average
           </span>
         )}
         {stats.averageResponseSeconds !== null && (
@@ -111,7 +111,7 @@ function AnalyticsBody({ stats, incidents }: { stats: Statistics; incidents: Inc
   );
 }
 
-/** Mean time from detection to the admin's decision, over the incidents loaded. */
+/** Mean time from detection to the operator's decision, over the incidents loaded. */
 function averageDecisionSeconds(incidents: Incident[]): number | null {
   const times = incidents.flatMap((i) => (i.decidedAt ? [(Date.parse(i.decidedAt) - Date.parse(i.detectedAt)) / 1000] : []));
   return times.length === 0 ? null : times.reduce((sum, t) => sum + t, 0) / times.length;

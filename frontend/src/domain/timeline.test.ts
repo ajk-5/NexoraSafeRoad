@@ -8,7 +8,7 @@ describe("buildTimeline", () => {
     const events = buildTimeline(makeIncident({ status: "WAITING_FOR_OPERATOR", assignedAdmin: null, canEdit: false }));
     expect(events.map((e) => [e.title, e.at])).toEqual([
       ["Detected by the AI", "2026-10-20T10:00:00Z"],
-      ["Waiting for an available admin", null],
+      ["Waiting for an available operator", null],
     ]);
   });
 

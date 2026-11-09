@@ -124,7 +124,7 @@ function DispatchesTab() {
           {(list) =>
             list.length === 0 ? (
               <EmptyState icon="send" title="No alert sent yet">
-                Alerts appear here once an admin sends one.
+                Alerts appear here once an operator sends one.
               </EmptyState>
             ) : (
               <>

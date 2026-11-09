@@ -1,21 +1,38 @@
-import { useEffect, useState } from "react";
-import { Link } from "react-router";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Link, useNavigate } from "react-router";
 
 import { workspacePath } from "../paths";
 import { enableSound, playAlertSound, soundReady, stopSound } from "../services/alertSound";
 import { useLive } from "../services/live";
 import { useSettings } from "../services/settings";
+import { useDesktopAlerts } from "../services/desktopNotifications";
 import type { Operator } from "../types/api";
 
 export function AlertAttention({ operator }: { operator: Operator }) {
   const { incidents, alerts } = useLive();
   const { settings } = useSettings();
+  const navigate = useNavigate();
+  const open = useCallback((path: string) => { void navigate(path); }, [navigate]);
   const [ready, setReady] = useState(soundReady);
   const [silenced, setSilenced] = useState<Set<string>>(() => new Set());
-  const pending = operator.role === "ADMIN"
-    ? (incidents.data ?? []).filter((i) => i.canEdit && i.status === "ASSIGNED").map((i) => ({ key: `incident-${i.id}`, id: i.id }))
+  const pending = useMemo(() => operator.role === "ADMIN"
+    ? (incidents.data ?? []).filter((i) => i.canEdit && i.status === "ASSIGNED").map((i) => ({ key: `incident-${i.id}`, id: i.id, reference: i.reference, severity: i.severity }))
     : operator.role === "SUPERADMIN" ? []
-    : (alerts.data ?? []).filter((a) => a.status === "SENT" && a.canAccept).map((a) => ({ key: `alert-${a.id}`, id: a.incidentId }));
+    : (alerts.data ?? []).filter((a) => a.status === "SENT" && a.canAccept).map((a) => ({ key: `alert-${a.id}`, id: a.incidentId, reference: a.incidentReference, severity: a.severity })),
+    [operator.role, incidents.data, alerts.data]);
+  // The dashboard can automatically start a review before its shared queue reloads.
+  // Include that assigned work so background assignments still produce a desktop alert.
+  const desktopPending = useMemo(() => operator.role === "ADMIN"
+    ? (incidents.data ?? []).filter((item) => item.canEdit && (item.status === "ASSIGNED" || item.status === "UNDER_REVIEW"))
+      .map((item) => ({ key: `incident-${item.id}`, id: item.id, reference: item.reference, severity: item.severity }))
+    : pending, [operator.role, incidents.data, pending]);
+  const desktopAlerts = useMemo(() => desktopPending.map((item) => ({
+    key: `${operator.id}-${item.key}`,
+    title: operator.role === "ADMIN" ? "SafeRoad — Incident assigned to you" : "SafeRoad — New emergency alert",
+    body: `${item.reference} · ${item.severity.toLowerCase()} severity. Open SafeRoad to respond.`,
+    path: workspacePath(operator.role, item.id),
+  })), [desktopPending, operator.id, operator.role]);
+  useDesktopAlerts(operator.id, settings.desktopNotifications, desktopAlerts, open);
   const audible = pending.filter((item) => !silenced.has(item.key));
   const signature = audible.map((item) => item.key).sort().join(",");
 

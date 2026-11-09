@@ -17,6 +17,6 @@ describe("badges", () => {
     expect(INCIDENT_STATUS_LABELS.DECLINED).toBe("Rejected / False alarm");
     expect(INCIDENT_STATUS_LABELS.ALERT_SENT).toBe("Alert sent");
     render(<IncidentStatusBadge status="WAITING_FOR_OPERATOR" />);
-    expect(screen.getByText("Waiting for review").getAttribute("title")).toMatch(/next available admin automatically/);
+    expect(screen.getByText("Waiting for review").getAttribute("title")).toMatch(/next available operator automatically/);
   });
 });

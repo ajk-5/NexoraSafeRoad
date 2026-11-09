@@ -24,7 +24,7 @@ interface Props {
 const EMPTY: Record<AlertFilter, { title: string; text: string }> = {
   new: { title: "No new alert", text: "New alerts for your service appear here automatically." },
   mine: { title: "Nothing accepted by you", text: "Alerts you accept are listed here." },
-  all: { title: "No alert yet", text: "Alerts for your service appear here as soon as an admin sends them." },
+  all: { title: "No alert yet", text: "Alerts for your service appear here as soon as an operator sends them." },
 };
 
 /** The service operator's queue: their running intervention, then new alerts, then history. */
