@@ -7,6 +7,8 @@ import { ROLE_LABELS } from "../labels";
 import { homePath, workspacePath } from "../paths";
 import { useAuth, useOperator } from "../services/auth";
 import { LiveDataProvider, useLive } from "../services/live";
+import { SettingsProvider } from "../services/settings";
+import { AlertAttention } from "./AlertAttention";
 import type { Operator } from "../types/api";
 import { AccountMenu } from "./header/AccountMenu";
 import { AvailabilityControl } from "./header/AvailabilityControl";
@@ -64,9 +66,11 @@ function usePageTitle(): string {
 export function Layout() {
   const operator = useOperator();
   return (
+    <SettingsProvider key={operator.id} operatorId={operator.id}>
     <LiveDataProvider operator={operator}>
       <Shell operator={operator} />
     </LiveDataProvider>
+    </SettingsProvider>
   );
 }
 
@@ -97,6 +101,7 @@ function Shell({ operator }: { operator: Operator }) {
       <div className="main-column">
         <Header operator={operator} title={title} onMenu={() => setDrawerOpen(true)} />
         <CurrentWorkBanner operator={operator} />
+        <AlertAttention operator={operator} />
         <main id="main" className="content" tabIndex={-1}>
           <Suspense fallback={<LoadingState rows={3} height={120} label="Loading page" />}>
             <Outlet />
@@ -147,7 +152,7 @@ function Sidebar({ operator }: { operator: Operator }) {
         </span>
       </Link>
       <nav>
-        <ul className="nav-list">{nav.map((item, index) => link(item, index === 0))}</ul>
+        <ul className="nav-list">{[...nav, { to: `${homePath(operator.role)}/settings`, label: "Settings", short: "Settings", icon: "settings" as IconName }].map((item, index) => link(item, index === 0))}</ul>
       </nav>
     </aside>
   );

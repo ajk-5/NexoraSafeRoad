@@ -9,7 +9,7 @@ export default defineConfig(({ mode }) => {
     plugins: [react()],
     server: {
       port: 5173,
-      proxy: { "/api": backend, "/media": backend },
+      proxy: { "/api": { target: backend, ws: true }, "/media": backend },
     },
   };
 });

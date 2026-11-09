@@ -17,8 +17,8 @@ export interface Polled<T> {
 }
 
 /**
- * Loads data now and every `intervalMs` while the component is shown (the backend has no push
- * channel). `load` is re-created when `deps` change.
+ * Loads data now and every `intervalMs` while the component is shown, with explicit reloads
+ * for live changes and user actions. `load` is re-created when `deps` change.
  *
  * - Never two requests at once: the next one is scheduled when the previous one ends.
  * - Backs off while requests fail (5 s, 10 s, 20 s, then every 30 s) and resets on success.

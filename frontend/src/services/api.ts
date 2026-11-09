@@ -50,6 +50,11 @@ export function hasToken(): boolean {
   return token !== null;
 }
 
+/** Sent only in the first authenticated WebSocket frame. */
+export function sessionToken(): string | null {
+  return token;
+}
+
 export function setToken(value: string | null): void {
   token = value;
   try {

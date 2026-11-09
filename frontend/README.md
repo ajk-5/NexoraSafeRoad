@@ -125,3 +125,10 @@ src/
 ├── format.ts             dates, durations, distances
 └── test/                 test setup and fixtures
 ```
+## Live alerts and settings
+
+Signed-in pages connect to `/api/live` over WebSocket. The session token is sent in the first frame, never in the URL. The server checks for changes to the operator's visible incidents, alerts and assignment every second, using fresh database sessions so updates from other workers are observed. Changed data is then fetched through the existing authenticated API. The socket reconnects automatically; five-second polling remains a fallback while the tab is visible. Reverse proxies must forward WebSocket upgrades for `/api/live`; the Vite proxy already does this.
+
+Open **Settings** in the sidebar to adjust alert sound, volume, repetition and appearance. Admins hear newly assigned incidents; service operators hear pending alerts for their service. The alternating six-pulse tone repeats every eight seconds by default. Opening an admin review, accepting an alert, or selecting **Silence these alerts** stops it; new alerts still sound. Preferences are stored per account in this browser.
+
+Select **Enable alert sound** once after loading the app, or use **Test alert sound** in Settings. Browsers require user interaction before allowing audio. Keep the app open: sleeping devices, suspended tabs and muted device audio can prevent notifications. No external sound download or browser notification permission is required.

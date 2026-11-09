@@ -6,6 +6,7 @@ import { AdminDashboard } from "./pages/admin/Dashboard";
 import { AdminHistory } from "./pages/admin/History";
 import { AdminIncidents } from "./pages/admin/Incidents";
 import { Login } from "./pages/Login";
+import { Settings } from "./pages/Settings";
 import { OperatorDashboard } from "./pages/operator/Dashboard";
 import { OperatorIncidents } from "./pages/operator/Incidents";
 import { areaOf, homePath, type Area } from "./paths";
@@ -48,6 +49,7 @@ export const router = createBrowserRouter([
     element: <RequireArea area="superadmin" />,
     children: [
       { index: true, element: <SuperadminOverview />, handle: title("Overview") },
+      { path: "settings", element: <Settings />, handle: title("Settings") },
       { path: "incidents", element: <AdminIncidents />, handle: title("Incidents") },
       { path: "incidents/:id", element: <SuperadminIncident />, handle: title("Incident") },
       { path: "history", element: <AdminHistory />, handle: title("History") },
@@ -62,6 +64,7 @@ export const router = createBrowserRouter([
     element: <RequireArea area="admin" />,
     children: [
       { index: true, element: <AdminDashboard />, handle: title("Dashboard") },
+      { path: "settings", element: <Settings />, handle: title("Settings") },
       { path: "incidents", element: <AdminIncidents />, handle: title("Incidents") },
       { path: "incidents/:id", element: <ToWorkspace area="admin" /> },
       { path: "map", element: <MapPage />, handle: title("Map") },
@@ -79,6 +82,7 @@ export const router = createBrowserRouter([
     element: <RequireArea area="operator" />,
     children: [
       { index: true, element: <OperatorDashboard />, handle: title("Dashboard") },
+      { path: "settings", element: <Settings />, handle: title("Settings") },
       { path: "incidents", element: <OperatorIncidents />, handle: title("Incidents") },
       { path: "incidents/:id", element: <ToWorkspace area="operator" /> },
       { path: "map", element: <MapPage />, handle: title("Map") },
