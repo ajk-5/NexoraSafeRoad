@@ -32,8 +32,14 @@ def admin_operator(operator: Annotated[Operator, Depends(current_operator)]) -> 
     return operator
 
 
+def superadmin_operator(operator: Annotated[Operator, Depends(current_operator)]) -> Operator:
+    if not operator.is_superadmin:
+        raise Forbidden("SUPERADMIN_ONLY", "Only the Super Admin can do this.")
+    return operator
+
+
 def service_operator(operator: Annotated[Operator, Depends(current_operator)]) -> Operator:
-    if operator.is_admin:
+    if operator.service is None:
         raise Forbidden("SERVICE_OPERATOR_ONLY", "Only service operators can do this.")
     return operator
 
@@ -45,4 +51,5 @@ def ai_client(x_api_key: Annotated[str | None, Header()] = None) -> None:
 
 CurrentOperator = Annotated[Operator, Depends(current_operator)]
 AdminOperator = Annotated[Operator, Depends(admin_operator)]
+SuperAdminOperator = Annotated[Operator, Depends(superadmin_operator)]
 ServiceOperator = Annotated[Operator, Depends(service_operator)]

@@ -43,7 +43,8 @@ class TrainingTestCase(ApiTestCase):
         super().setUp()
         with self.Session() as db:
             seed_model_registry(db)
-        self.admin = self.login("admin1")
+        # Training belongs to the super admin.
+        self.admin = self.login("superadmin", Role.SUPERADMIN)
 
     def upload(self, content: bytes, name: str = "Crashes", headers: Headers | None = None, expect: int = 201) -> Any:
         response = self.client.post(
@@ -211,8 +212,9 @@ class FeedbackTest(TrainingTestCase):
             self.client.put(
                 f"/api/incidents/{incident['id']}/video", content=b"clip", headers={**AI_HEADERS, "Content-Type": "video/mp4"}
             )
-        self.post(f"/api/incidents/{declined['id']}/decline", self.admin)
-        self.post(f"/api/incidents/{sent['id']}/send", self.admin, {"services": ["POLICE"]})
+        reviewer = self.login("admin1")  # an admin reviews them; the super admin cannot
+        self.post(f"/api/incidents/{declined['id']}/decline", reviewer)
+        self.post(f"/api/incidents/{sent['id']}/send", reviewer, {"services": ["POLICE"]})
 
         self.assertEqual(self.get("/api/training/overview", self.admin)["feedback"], {"falseAlarms": 1, "confirmed": 1})
         clips = self.client.get("/api/training/worker/feedback", params={"confirmed": True}, headers=AI_HEADERS).json()

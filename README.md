@@ -1,1797 +1,276 @@
 # Nexora SafeRoad
 
-> AI-assisted road accident detection and incident management platform.
+> AI-assisted road accident detection and emergency response.
 
-Nexora SafeRoad is a SafeCity / DataCity prototype designed to detect possible road accidents from video footage, estimate their severity, and help human operators coordinate an appropriate response.
+Nexora SafeRoad watches road cameras with an AI model, detects possible accidents, estimates how
+serious they are, and puts them in front of a human operator with the evidence: a short video
+clip, what the AI saw, the location on a map and the services it recommends. The operator confirms
+the accident (or rejects a false alarm) and alerts the right services — Police, Ambulance (SAMU),
+Firefighters (Pompiers), Road assistance (Dépannage) — who follow the intervention in their own
+console until it is resolved.
 
-The system uses artificial intelligence to assist decision-making, but the **final decision always remains with a human operator**.
+**The AI suggests; a person always decides.** No alert leaves the platform without an operator
+confirming the accident first.
 
----
-
-
-
-**Prototype / MVP**
-
-Main workflow:
-
-```text
-Video
-  ↓
-AI Detection
-  ↓
-Incident Created
-  ↓
-Admin Assignment
-  ↓
-Human Verification
-  ↓
-AI Response Suggestion
-  ↓
-Admin Decision
-  ↓
-Alert Services
-  ↓
-Service Operator Intervention
-  ↓
-Resolved
-```
+SafeCity / DataCity project — EFREI 2026.
 
 ---
 
-## 1. Project Objectives
+## Contents
 
-Nexora SafeRoad aims to:
+- [How it works](#how-it-works)
+- [Roles](#roles)
+- [Features](#features)
+- [Architecture](#architecture)
+- [Quick start](#quick-start)
+- [Demo accounts](#demo-accounts)
+- [Incident and alert lifecycle](#incident-and-alert-lifecycle)
+- [Rules the platform enforces](#rules-the-platform-enforces)
+- [Project structure](#project-structure)
+- [Tests](#tests)
+- [Technology](#technology)
+- [Scope and limits](#scope-and-limits)
+- [Credits and license](#credits-and-license)
 
-- Detect possible road accidents automatically
-- Analyze a short video sequence
-- Estimate accident severity
-- Detect vehicles and people involved
-- Geolocate the incident
-- Display incidents on an interactive map
-- Provide a simple monitoring dashboard
-- Suggest which services should be contacted
-- Allow a human Admin Operator to confirm or modify the AI suggestion
-- Send alerts to selected services
-- Track intervention status
-- Store incident and alert history
-- Display incident statistics
-- Distribute incidents between active operators
-- Prevent two operators from handling the same incident at the same time
-- Reassign an incident if an operator becomes unavailable
-
-The services concerned are:
-
-- Police
-- Ambulance / SAMU
-- Pompiers
-- Dépannage
+Detailed documentation: [backend](backend/README.md) · [frontend](frontend/README.md) · [AI](ai/README.md).
 
 ---
 
-## 2. Core Principle
+## How it works
 
-Nexora SafeRoad is an **AI-assisted system**, not an autonomous emergency dispatch system.
-
-```text
-AI Detects
-    ↓
-AI Analyses
-    ↓
-AI Recommends
-    ↓
-Human Reviews
-    ↓
-Human Decides
+```mermaid
+flowchart LR
+    CAM["Road camera / video"] --> AI["AI detector<br/>YOLO + rules"]
+    AI -->|"incident + video clip"| API["Backend API"]
+    API -->|"assigns"| ADM["Admin<br/>verifies the clip"]
+    ADM -->|"confirms + chooses services"| API
+    API -->|"alerts"| SRV["Service operators<br/>Police · SAMU · Pompiers · Dépannage"]
+    SRV -->|"accepted → en route → on scene → resolved"| API
+    ADM -.->|"rejects a false alarm"| API
+    SA["Super admin"] -->|"trains models, accounts, statistics"| API
+    API -->|"active model"| AI
 ```
 
-The AI can recommend actions, but it does not directly contact real emergency services in the MVP.
+1. **Detection.** The AI pipeline reads a video file, webcam or stream. A YOLO model finds vehicles
+   and people; an accident model looks for accidents, fire and overturned vehicles. An accident
+   counts only when it is seen in several consecutive frames.
+2. **Incident.** The pipeline estimates the severity (fixed rules on what it counted), records the
+   footage from a few seconds before to a few seconds after the detection, and sends both to the
+   backend.
+3. **Assignment.** The backend gives the incident to an available admin straight away — most
+   severe first when several are waiting. The incident is locked to that admin.
+4. **Verification.** The admin watches the clip next to the AI assessment and the map, then
+   confirms a real accident or rejects a false alarm.
+5. **Response.** For a confirmed accident the admin reviews the services the AI recommends (with
+   the nearest station for each) and sends the alert.
+6. **Intervention.** Operators of each alerted service see the alert; the first available one
+   accepts it and reports progress until it is resolved. The incident is resolved when every
+   service has finished.
+7. **Learning.** Rejected false alarms and confirmed accidents become training material. The
+   super admin trains new models on uploaded datasets plus this feedback, compares them and
+   chooses the one the detector uses.
 
-The human operator can:
+## Roles
 
-- Accept the AI recommendation
-- Remove one or more suggested services
-- Add another service
-- Select all services
-- Send the alert
-- Decline the alert
+| Role | Works in | Can do |
+|---|---|---|
+| **Super admin** | `/superadmin` | Platform overview and statistics, every incident (read only), history and map, **AI training** (datasets, training jobs, model activation, review of AI predictions), **accounts** (create admins, service operators and super admins). Never assigned incidents. |
+| **Admin** | `/admin` | Incident queue and review workspace: verify the clip, confirm or reject, choose services and stations, send the alert. Pause/resume availability. Incidents list, map, history. |
+| **Police, Ambulance, Firefighters, Road assistance** | `/operator` | Alerts for their own service: accept one, then *en route → on scene → resolved*. Incidents their service was alerted to, and the map. |
 
----
+Every role signs in on the same page by choosing its role in the **Sign in as** list.
 
-## 3. User Roles
+## Features
 
-The system has two main user groups.
+- **One-screen review**: incident queue on the left (most urgent first, or newest first; filters
+  All / Waiting / Mine / High), the selected incident on the right with the video, the AI
+  assessment, the decision, the location and the activity timeline.
+- **Two-step decision**: *Confirm accident* (recorded by the backend) before any service can be
+  chosen; then *Send alert* through a confirmation dialog naming the incident, the services and
+  the stations.
+- **Exclusive ownership**: an incident under review is locked to one admin; everyone else sees it
+  read only. The backend enforces it with row locks, not only the interface.
+- **Availability**: Pause stops new assignments without dropping the work in hand; an admin can
+  return their incident to the queue. Absent operators are detected through heartbeats and their
+  incident is reassigned.
+- **AI transparency**: the prediction, the estimated severity, the model confidence (explained as
+  a detector score, not a probability) and why the AI flagged it are kept apart from what a person
+  verified. Unknown facts (injuries, blocked lanes) say *Unknown*.
+- **Nearest stations**: about 950 police stations, emergency departments, fire stations and tow
+  companies in Île-de-France (OpenStreetMap); the admin can pick another of the three nearest.
+- **Maps**: Leaflet / OpenStreetMap, severity markers with a letter (H/M/L), a synchronized list.
+- **AI training**: upload YOLO datasets, train on a GPU worker with live metrics, compare models,
+  activate one; the detector picks it up and checks its sha256.
+- **Accounts**: the super admin creates accounts with a role and an initial password.
+- **Interface**: light and dark themes, keyboard accessible, WCAG 2.2 AA checked with axe, works
+  on phones (list first, then the incident full screen), "Live / Connection lost" indicator.
 
-```text
-Nexora SafeRoad
-│
-├── Admin Operator
-│
-└── Service Operator
-    ├── Police Operator
-    ├── Ambulance Operator
-    ├── Pompiers Operator
-    └── Dépannage Operator
+## Architecture
+
+```mermaid
+flowchart TB
+    subgraph host["Host / GPU machine"]
+      DET["ai.main<br/>accident detector"]
+      TRN["ai.trainer<br/>training worker"]
+    end
+    subgraph server["Server"]
+      API["FastAPI backend<br/>REST + /media clips"]
+      DB[("PostgreSQL<br/>or SQLite")]
+    end
+    WEB["React console<br/>Vite dev server or static build"]
+
+    DET -->|"API key: incidents, clips"| API
+    TRN -->|"API key: claim jobs, metrics, weights"| API
+    WEB -->|"Bearer token: /api"| API
+    API --- DB
 ```
 
-### Admin Operator
+- **AI pipeline** (`ai/`): Python, OpenCV, Ultralytics YOLO. Runs where the cameras or the GPU
+  are. Talks to the backend with an API key.
+- **Backend** (`backend/`): FastAPI + SQLAlchemy. Business rules, assignment and locking,
+  permissions, statistics, training orchestration. Serves the clips under `/media`.
+- **Frontend** (`frontend/`): React + TypeScript + Vite. One console with an area per role.
+- **Database**: PostgreSQL in Docker (row locks with `SKIP LOCKED` make assignment safe with
+  several backend processes); SQLite for local development and tests.
 
-The Admin Operator:
+## Quick start
 
-- Reviews newly detected incidents
-- Watches the short incident video
-- Checks the AI analysis
-- Confirms or modifies the suggested services
-- Sends or declines alerts
-- Monitors incidents
-- Views alerts
-- Views statistics
-- Tracks service operator progress
+Prerequisites: **Python 3.12**, **Node.js 22+**, and optionally **Docker** (for PostgreSQL).
 
-### Service Operator
+### 1. Backend
 
-Police, Ambulance, Pompiers and Dépannage use the same operator interface.
+With Docker (backend + PostgreSQL):
 
-The connected user's role determines which alerts and incidents are visible.
-
-Example:
-
-```text
-Police Operator
-→ Police incidents and alerts only
-
-Ambulance Operator
-→ Ambulance incidents and alerts only
-
-Pompiers Operator
-→ Pompiers incidents and alerts only
-
-Dépannage Operator
-→ Dépannage incidents and alerts only
+```bash
+docker compose up --build            # API on http://localhost:8000, docs on /docs
 ```
 
----
+Or without Docker (SQLite file `backend/saferoad.db`), from the repository root:
 
-## 4. UI / UX Principles
-
-The interface must be simple enough for an operator to understand the situation and take action quickly.
-
-Main principles:
-
-- Few pages
-- Few buttons
-- Clear labels
-- Same navigation on every page
-- Important information visible first
-- One main action per screen
-- Short incident video
-- Simple map
-- Clear severity level
-- Operator status always visible
-- No unnecessary technical AI information
-
-The operator should see information such as:
-
-```text
-Incident detected
-Severity: HIGH
-Location: A7 - KM 32.4
-Vehicles: 3
-Possible injuries: Yes
+```bash
+python -m venv .venv
+.venv\Scripts\activate               # Windows (on macOS/Linux: source .venv/bin/activate)
+pip install -r backend/requirements.txt
+uvicorn backend.main:app --reload
 ```
 
-The operator should not need to see:
+### 2. Frontend
 
-```text
-Bounding box coordinates
-Tensor output
-Model inference internals
-Database IDs
-Raw AI model logs
+```bash
+cd frontend
+npm install
+npm run dev                          # http://localhost:5173
 ```
 
----
+### 3. AI detector
 
-## 5. Admin Navigation
-
-The Admin sidebar is identical on every Admin page.
-
-```text
-Dashboard
-Incidents
-Alerts
-Statistics
+```bash
+pip install -r ai/requirements.txt   # in the same virtual environment
+python -m ai.download_models         # pretrained accident model into ai/model/
+python -m ai.main --source 0 --backend http://localhost:8000 --show
 ```
 
-The same sidebar must remain visible throughout the Admin interface.
+`--source` takes a webcam index (`0`), a video file or an RTSP/HTTP stream. See the
+[AI README](ai/README.md) for every option and for the training worker.
 
----
+## Demo accounts
 
-## 6. Service Operator Navigation
+Created on first start (turn off with `SEED_DEMO_OPERATORS=0`). Password for all: `saferoad`.
 
-The Service Operator sidebar is identical on every operator page.
-
-```text
-Dashboard
-Incidents
-Alerts
-```
-
-The same interface is used for:
-
-- Police
-- Ambulance
-- Pompiers
-- Dépannage
-
-Only the data changes depending on the connected role.
-
----
-
-## 7. Login
-
-The login screen should remain simple.
-
-The user selects a role from a dropdown:
-
-```text
-Sign in as:
-
-Admin
-Police
-Ambulance
-Pompiers
-Dépannage
-```
-
-Login fields:
-
-```text
-Username
-Password
-```
-
-The system then loads the correct interface based on the selected role.
-
----
-
-## 8. Admin Dashboard
-
-The Admin Dashboard provides a quick overview of the system.
-
-```text
-┌────────────────────────────────────────────┐
-│ Dashboard                                  │
-├────────────────────────────────────────────┤
-│                                            │
-│             Live Incident Map              │
-│                                            │
-├──────────────────────┬─────────────────────┤
-│ Recent Alerts        │ Statistics          │
-│                      │                     │
-└──────────────────────┴─────────────────────┘
-```
-
-The dashboard can display:
-
-- Active incidents
-- Incident locations
-- Severity levels
-- Recent alerts
-- Incident statistics
-- Operator availability
-
----
-
-## 9. Admin Incidents Page
-
-The Admin `Incidents` page contains incidents detected by the system.
-
-Example:
-
-```text
-INC-1001
-
-Location:
-A7 - KM 32.4
-
-Severity:
-HIGH
-
-Status:
-PENDING_VALIDATION
-
-Assigned:
-Admin Operator 03
-```
-
-Possible columns:
-
-```text
-ID
-Preview
-Date / Time
-Location
-Severity
-Status
-Assigned Operator
-```
-
-Selecting an incident opens the incident detail page.
-
----
-
-## 10. Admin Incident Detail Page
-
-The incident page is the main decision screen for an Admin Operator.
-
-```text
-┌───────────────────────┬───────────────────────┐
-│                       │                       │
-│    Incident Video     │    Incident Details   │
-│                       │                       │
-├───────────────────────┴───────────────────────┤
-│                                               │
-│              AI Analysis Summary              │
-│                                               │
-├───────────────────────────────────────────────┤
-│                                               │
-│             AI Suggested Response             │
-│                                               │
-├───────────────────────────────────────────────┤
-│                                               │
-│      SEND ALERT     DECLINE     SAVE DRAFT    │
-│                                               │
-└───────────────────────────────────────────────┘
-```
-
----
-
-## 11. Incident Video
-
-When an accident is detected, the system stores a short video sequence.
-
-For the MVP:
-
-```text
-10-second incident clip
-```
-
-Example:
-
-```text
-Camera C12
-
-▶ 00:00 ───────────── 00:10
-```
-
-The Admin Operator uses this video to verify whether the AI detection is correct.
-
----
-
-## 12. Incident Information
-
-Only useful information is shown.
-
-Example:
-
-```text
-Incident:
-INC-1001
-
-Location:
-A7 - KM 32.4
-
-Time:
-10:24
-
-Severity:
-HIGH
-
-Vehicles:
-3
-
-Possible injuries:
-YES
-
-Road impact:
-2 lanes blocked
-
-AI confidence:
-87%
-```
-
----
-
-## 13. AI Suggested Response
-
-After analysis, the AI proposes which services may be required.
-
-Example:
-
-```text
-AI Suggested Response
-
-☑ Police
-☑ Ambulance
-☑ Pompiers
-☐ Dépannage
-```
-
-The system may explain each recommendation.
-
-```text
-Police
-Reason: Traffic management
-
-Ambulance
-Reason: Possible injuries
-
-Pompiers
-Reason: Vehicle extraction
-
-Dépannage
-Reason: Vehicle removal
-```
-
-Only the services the situation needs are suggested, from what the AI saw:
-
-| Service | Suggested when |
+| Sign in as | Username |
 |---|---|
-| Police | Always: secure the scene and manage traffic |
-| Ambulance / SAMU | A person on the scene, an overturned or burning vehicle, or 3+ vehicles |
-| Pompiers | A vehicle on fire or overturned |
-| Dépannage | 2+ vehicles collided, or a vehicle overturned or burnt |
-
-For each selected service, the screen also shows the **nearest station**: the closest police station, hospital emergency department, fire station or tow company, with a rough driving time. The admin can pick another of the 3 nearest.
-
-```text
-Police     → Commissariat Paris 8e · 320 m · ~1 min
-Ambulance  → Hôtel-Dieu (Paris 4e) · 2.4 km · ~6 min
-```
-
-The AI decides *which services* are needed; *which station* is a distance calculation. Station data comes from OpenStreetMap (see [backend/README.md](backend/README.md)).
-
----
-
-## 14. Human Validation
-
-The Admin Operator always keeps control.
-
-Example AI recommendation:
-
-```text
-☑ Police
-☑ Ambulance
-☑ Pompiers
-☐ Dépannage
-```
-
-The Admin Operator can modify it to:
-
-```text
-☑ Police
-☑ Ambulance
-☐ Pompiers
-☑ Dépannage
-```
-
-The Admin can therefore:
-
-- Add a service
-- Remove a service
-- Select multiple services
-- Select all services
-- Send the alert
-- Decline the alert
-
----
-
-## 15. Admin Actions
-
-Three main actions are available on an incident.
-
-### Send Alert
-
-```text
-SEND ALERT
-```
-
-Sends the alert to all selected services.
-
-### Decline
-
-```text
-DECLINE
-```
-
-Rejects the alert.
-
-This can be used when the AI generated a false positive or when no intervention is required.
-
-### Save Draft
-
-```text
-SAVE DRAFT
-```
-
-Keeps the decision for later review.
-
----
-
-## 16. Admin Alerts Page
-
-The Admin Alerts page stores alert history.
-
-Example:
-
-```text
-INC-1001
-
-Services:
-Police
-Ambulance
-
-Status:
-SENT
-
-Severity:
-HIGH
-
-Time:
-10:24
-```
-
-Possible alert statuses:
-
-```text
-PENDING
-SENT
-DECLINED
-```
-
----
-
-## 17. Admin Statistics Page
-
-The Statistics page should remain simple.
-
-It can display:
-
-- Total incidents
-- Incidents per day
-- Incidents by severity
-- Incidents by area
-- Average response time
-- Alerts by service
-- Resolved incidents
-
-Example:
-
-```text
-Incidents
-
-40 |
-30 |        █
-20 |    █   █       █
-10 | █  █   █   █   █
-   +--------------------
-     Mon Tue Wed Thu Fri
-```
-
----
-
-## 18. Service Operator Dashboard
-
-The Service Operator Dashboard shows only information relevant to that service.
-
-```text
-┌───────────────────────────────────────────┐
-│ Dashboard                                 │
-├───────────────────────────────────────────┤
-│                                           │
-│               Incident Map                │
-│                                           │
-├─────────────────────┬─────────────────────┤
-│ Assigned Incidents  │ Recent Alerts       │
-│                     │                     │
-└─────────────────────┴─────────────────────┘
-```
-
-A Police Operator should only see Police incidents.
-
-An Ambulance Operator should only see Ambulance incidents.
-
-The same rule applies to Pompiers and Dépannage.
-
----
-
-## 19. Service Operator Incident Page
-
-The Operator Incident page contains:
-
-- Short video
-- Incident details
-- Location
-- Severity
-- Description
-- Current status
-
-Example:
-
-```text
-INC-1001
-
-Location:
-A7 - Paris
-
-Severity:
-HIGH
-
-Vehicles:
-3
-
-Status:
-ASSIGNED
-```
-
----
-
-## 20. Service Operator Intervention Status
-
-The operator can update the intervention status.
-
-```text
-ASSIGNED
-    ↓
-ACCEPTED
-    ↓
-EN_ROUTE
-    ↓
-ON_SCENE
-    ↓
-RESOLVED
-```
-
-The Admin Operator can follow these updates.
-
----
-
-## 21. Service Operator Alerts Page
-
-The Alerts page contains the alert history for the connected service.
-
-Example:
-
-```text
-INC-1001
-
-Multiple vehicles involved
-
-Severity:
-HIGH
-
-Status:
-NEW
-
-Received:
-2 min ago
-```
-
----
-
-## 22. Operator Availability
-
-Each Admin or Service Operator has a status.
-
-```text
-ACTIVE
-BUSY
-PAUSED
-OFFLINE
-```
-
-### ACTIVE
-
-The operator is connected and available.
-
-A new incident can be assigned.
-
-### BUSY
-
-The operator is currently handling an incident.
-
-For the MVP, one operator handles one active incident at a time.
-
-### PAUSED
-
-The operator is connected but temporarily unavailable.
-
-Possible reasons:
-
-- Break
-- Lunch
-- Meeting
-- Temporary absence
-
-No new incident is assigned while the operator is paused.
-
-### OFFLINE
-
-The operator is disconnected or no longer responding.
-
----
-
-## 23. Pause / Resume
-
-The operator status is always visible in the header.
-
-Example:
-
-```text
-Admin Operator 03
-
-● ACTIVE
-
-[ PAUSE ]
-```
-
-When the operator clicks `PAUSE`:
-
-```text
-Admin Operator 03
-
-⏸ PAUSED
-
-[ RESUME ]
-```
-
-When the operator returns, clicking `RESUME` changes the status back to:
-
-```text
-ACTIVE
-```
-
-### Important Pause Rule
-
-Pause means:
-
-> Do not assign me new incidents.
-
-Pause must not automatically remove an incident that the operator is already processing.
-
-Example:
-
-```text
-Admin handles INC-1001
-        ↓
-Admin clicks PAUSE
-        ↓
-INC-1001 remains assigned
-        ↓
-No new incident is assigned
-```
-
----
-
-## 24. Automatic Admin Assignment
-
-When an incident is created, the backend searches for an available Admin Operator.
-
-Only operators with:
-
-```text
-status = ACTIVE
-```
-
-can receive new incidents.
-
-Example:
-
-```text
-Admin A → BUSY
-Admin B → PAUSED
-Admin C → ACTIVE
-Admin D → OFFLINE
-```
-
-The incident is assigned to:
-
-```text
-Admin C
-```
-
----
-
-## 25. Incident Distribution
-
-For the MVP, the backend can assign an incident to the active operator with the smallest current workload.
-
-Example:
-
-```text
-Admin A → 2 incidents
-Admin B → 0 incidents
-Admin C → 1 incident
-```
-
-The next incident is assigned to:
-
-```text
-Admin B
-```
-
-This keeps distribution simple and fair.
-
----
-
-## 26. Waiting Queue
-
-If no Admin Operator is currently available:
-
-```text
-Admin A → BUSY
-Admin B → PAUSED
-Admin C → OFFLINE
-```
-
-the incident enters:
-
-```text
-WAITING_FOR_OPERATOR
-```
-
-Example queue:
-
-```text
-1. INC-1012    HIGH
-2. INC-1013    MEDIUM
-3. INC-1014    LOW
-```
-
-As soon as an Admin Operator becomes `ACTIVE`, the system assigns the next incident.
-
----
-
-## 27. Incident Priority
-
-Waiting incidents are ordered by severity.
-
-```text
-HIGH
- ↓
-MEDIUM
- ↓
-LOW
-```
-
-If two incidents have the same severity, the oldest incident is processed first.
-
----
-
-## 28. Incident Locking
-
-An incident can only be actively handled by **one Admin Operator at a time**.
-
-When an Admin receives an incident:
-
-```text
-INC-1001
-
-Assigned to:
-Admin Operator 03
-
-Status:
-UNDER_REVIEW
-```
-
-the incident becomes locked.
-
-Other Admin Operators may still see it, but they cannot modify it.
-
-Example:
-
-```text
-INC-1001
-
-Currently handled by:
-Admin Operator 03
-
-READ ONLY
-```
-
-The following actions are disabled for other operators:
-
-```text
-Send Alert
-Decline
-Modify Services
-Save Decision
-```
-
----
-
-## 29. Backend Lock Data
-
-The backend can store:
-
-```text
-assigned_operator_id
-locked_at
-last_activity_at
-```
-
-Example:
-
-```json
-{
-  "incidentId": "INC-1001",
-  "assignedOperatorId": 3,
-  "status": "UNDER_REVIEW",
-  "lockedAt": "2026-10-06T14:20:00",
-  "lastActivityAt": "2026-10-06T14:21:30"
-}
-```
-
----
-
-## 30. Heartbeat
-
-The frontend periodically tells the backend that the operator is still active.
-
-Example:
-
-```text
-Frontend
-    ↓
-Every 30 seconds
-    ↓
-POST /operators/heartbeat
-```
-
-The backend updates:
-
-```text
-last_seen_at
-```
-
-Example:
-
-```json
-{
-  "operatorId": 3,
-  "status": "ACTIVE",
-  "lastSeenAt": "2026-10-06T14:22:00"
-}
-```
-
----
-
-## 31. Detecting Operator Absence
-
-If the backend does not receive a heartbeat for a defined period:
-
-```text
-No heartbeat
-      ↓
-120 seconds
-      ↓
-Operator = OFFLINE
-```
-
-The operator is no longer considered available.
-
-For the MVP:
-
-```text
-OFFLINE_TIMEOUT = 120 seconds
-```
-
----
-
-## 32. Incident Lock Timeout
-
-An incident lock must not remain permanent if an operator disappears.
-
-For the MVP:
-
-```text
-LOCK_TIMEOUT = 120 seconds
-```
-
-Workflow:
-
-```text
-Incident locked
-      ↓
-No operator activity
-      ↓
-Timeout
-      ↓
-Release lock
-      ↓
-Find another ACTIVE Admin
-      ↓
-Reassign incident
-```
-
----
-
-## 33. Automatic Reassignment
-
-If an Admin becomes unavailable before completing the review:
-
-```text
-Admin A
-   ↓
-INC-1001 assigned
-   ↓
-Admin A becomes OFFLINE
-   ↓
-Lock expires
-   ↓
-Search another ACTIVE Admin
-   ↓
-INC-1001 → Admin B
-```
-
-This prevents incidents from remaining blocked.
-
----
-
-## 34. Concurrency Rule
-
-The backend must always verify that the current operator owns the incident before accepting a modification.
-
-Conceptually:
-
-```text
-Is this incident assigned to this operator?
-```
-
-If yes:
-
-```text
-Request accepted
-```
-
-If no:
-
-```text
-409 Conflict
-```
-
-Example response:
-
-```json
-{
-  "error": "INCIDENT_ALREADY_ASSIGNED",
-  "message": "This incident is currently handled by another operator."
-}
-```
-
-This validation must happen in the backend.
-
-The frontend alone is not sufficient for security or concurrency control.
-
----
-
-## 35. Incident Lifecycle
-
-An incident can use the following statuses:
-
-```text
-DETECTED
-WAITING_FOR_OPERATOR
-ASSIGNED
-UNDER_REVIEW
-ALERT_SENT
-DECLINED
-IN_PROGRESS
-RESOLVED
-```
-
-Main lifecycle:
-
-```text
-DETECTED
-    ↓
-WAITING_FOR_OPERATOR
-    ↓
-ASSIGNED
-    ↓
-UNDER_REVIEW
-    ↓
- ┌───────────────┐
- ↓               ↓
-ALERT_SENT     DECLINED
- ↓
-IN_PROGRESS
- ↓
-RESOLVED
-```
-
----
-
-## 36. Admin Operator Lifecycle
-
-```text
-OFFLINE
-   ↓
-Login
-   ↓
-ACTIVE
-   ↓
-Incident assigned
-   ↓
-BUSY
-   ↓
-Incident completed
-   ↓
-ACTIVE
-```
-
-Pause flow:
-
-```text
-ACTIVE
-   ↓
-PAUSE
-   ↓
-PAUSED
-   ↓
-RESUME
-   ↓
-ACTIVE
-```
-
----
-
-## 37. Service Operator Lifecycle
-
-```text
-OFFLINE
-   ↓
-Login
-   ↓
-ACTIVE
-   ↓
-Alert assigned
-   ↓
-BUSY
-   ↓
-Intervention completed
-   ↓
-ACTIVE
-```
-
-Pause works in the same way:
-
-```text
-ACTIVE ↔ PAUSED
-```
-
----
-
-## 38. System Architecture
-
-```text
-                    Camera / Video
-                           │
-                           ▼
-                    Python + OpenCV
-                           │
-                           ▼
-                      YOLO Model
-                           │
-                           ▼
-                  Accident Detection
-                           │
-                           ▼
-                   Severity Analysis
-                           │
-                           ▼
-                       FastAPI
-                           │
-              ┌────────────┴────────────┐
-              │                         │
-              ▼                         ▼
-         PostgreSQL                 React + TS
-              │                         │
-              │              ┌──────────┼──────────┐
-              │              ▼          ▼          ▼
-              │             Map       Alerts    Statistics
-              │
-              ▼
-       Operator Management
-              │
-              ▼
-      Incident Assignment
-```
-
----
-
-## 39. Technology Stack
-
-### Artificial Intelligence
-
-- Python
-- YOLO
-- PyTorch
-- OpenCV
-
-The AI analyzes video frames and detects possible road accidents.
-
-### Backend
-
-- Python
-- FastAPI
-- SQLAlchemy
-- PostgreSQL
-
-The backend handles:
-
-- Users
-- Roles
-- Operators
-- Incidents
-- Assignments
-- Incident locks
-- Alerts
-- Statistics
-- AI suggestions
-- Operator availability
-- Reassignment
-
-### Frontend
-
-- React
-- TypeScript
-- CSS
-- Leaflet
-- OpenStreetMap
-- Recharts
-
-### Development Tools
-
-- Git
-- GitHub
-- Docker
-- Docker Compose
-- Roboflow
-
----
-
-## 40. Project Structure
+| Super admin | `superadmin` |
+| Admin | `admin1`, `admin2`, `admin3` |
+| Police | `police1` |
+| Ambulance | `ambulance1` |
+| Firefighters | `pompiers1` |
+| Road assistance | `depannage1` |
+
+A database created before the super admin role existed receives the `superadmin` account on the
+next start. Change these passwords — or create real accounts and disable the seed — before
+using the platform outside development.
+
+## Incident and alert lifecycle
+
+| Incident status | Shown as | Meaning |
+|---|---|---|
+| `WAITING_FOR_OPERATOR` | Waiting for review | No admin available yet; assigned automatically, most severe first |
+| `ASSIGNED` | Assigned | Locked to an admin who has not opened it yet |
+| `UNDER_REVIEW` | Being reviewed | The admin is verifying it (it may already be confirmed) |
+| `ALERT_SENT` | Alert sent | Services alerted, none has accepted yet |
+| `IN_PROGRESS` | Services responding | At least one service accepted |
+| `RESOLVED` | Resolved | Every alerted service finished |
+| `DECLINED` | Rejected / False alarm | The admin rejected it; nobody was alerted |
+
+Each alert goes `SENT → ACCEPTED → EN_ROUTE → ON_SCENE → RESOLVED` (steps may be skipped towards
+resolved).
+
+## Rules the platform enforces
+
+- A person confirms every accident before any service is alerted.
+- An incident under review belongs to one admin; any change by someone else is refused (`409`).
+- New incidents go to available admins only; the one who waited longest gets the next one.
+- Waiting incidents are served High → Medium → Low severity, oldest first.
+- Pausing keeps the work in hand; the operator chooses whether to return it to the queue.
+- An admin who stops responding (2 minutes by default) loses the lock; the incident is reassigned.
+- Each service operator handles one intervention at a time; the first available one accepts.
+- The super admin sees everything but never decides on incidents and is never assigned one.
+- Statistics, AI training and accounts are reserved to the super admin.
+
+## Project structure
 
 ```text
 NexoraSafeRoad/
-│
-├── ai/
-│   ├── models/
-│   │   └── accident_model.pt
-│   ├── detector.py
-│   ├── video_processor.py
-│   ├── severity.py
-│   └── requirements.txt
-│
-├── backend/
-│   ├── main.py
-│   ├── database.py
-│   │
-│   ├── models/
-│   ├── schemas/
-│   ├── routes/
-│   │   ├── auth.py
-│   │   ├── incidents.py
-│   │   ├── alerts.py
-│   │   ├── operators.py
-│   │   └── statistics.py
-│   │
-│   └── services/
-│       ├── incident_service.py
-│       ├── assignment_service.py
-│       ├── operator_service.py
-│       ├── alert_service.py
-│       └── ai_service.py
-│
-├── frontend/
-│   ├── src/
-│   │
-│   ├── components/
-│   │
-│   ├── pages/
-│   │   ├── Login.tsx
-│   │   │
-│   │   ├── admin/
-│   │   │   ├── Dashboard.tsx
-│   │   │   ├── Incidents.tsx
-│   │   │   ├── IncidentDetails.tsx
-│   │   │   ├── Alerts.tsx
-│   │   │   └── Statistics.tsx
-│   │   │
-│   │   └── operator/
-│   │       ├── Dashboard.tsx
-│   │       ├── Incidents.tsx
-│   │       ├── IncidentDetails.tsx
-│   │       └── Alerts.tsx
-│   │
-│   ├── services/
-│   └── types/
-│
-├── dataset/
-│
-├── docs/
-│   ├── architecture.md
-│   └── wireframes/
-│
-├── docker-compose.yml
-│
+├── ai/                    accident detector, clip recorder, severity rules, training worker
+│   ├── model/             model weights (downloaded, not in git)
+│   └── tests/
+├── backend/               FastAPI application
+│   ├── models/            SQLAlchemy tables (operators, incidents, alerts, training)
+│   ├── routes/            REST endpoints
+│   ├── schemas/           request and response shapes
+│   ├── services/          business rules (assignment, incidents, alerts, stations, training)
+│   ├── data/stations.json emergency stations (OpenStreetMap)
+│   └── tests/
+├── frontend/              React console
+│   └── src/               pages per role, workspace components, design system, tests
+├── dataset/videos/        sample videos for the detector (not in git)
+├── docker-compose.yml     PostgreSQL + backend
 └── README.md
 ```
 
----
+## Tests
 
-## 41. Operator Model
-
-Example:
-
-```text
-Operator
-----------------------------
-
-id
-username
-password_hash
-role
-status
-last_seen_at
-current_incident_id
-created_at
-updated_at
+```bash
+python -m unittest discover -s backend/tests -t .   # backend: 82 tests
+python -m unittest discover -s ai/tests -t .        # AI: 22 tests
+cd frontend && npm test                             # frontend: 51 tests (Vitest)
+cd frontend && npm run build                        # strict type check + production build
 ```
 
-Possible roles:
-
-```text
-ADMIN
-POLICE
-AMBULANCE
-POMPIERS
-DEPANNAGE
-```
-
-Possible statuses:
-
-```text
-ACTIVE
-BUSY
-PAUSED
-OFFLINE
-```
-
----
-
-## 42. Incident Model
-
-Example:
-
-```text
-Incident
-----------------------------
-
-id
-latitude
-longitude
-severity
-confidence
-vehicles
-possible_injuries
-video_url
-status
-assigned_admin_id
-locked_at
-last_activity_at
-created_at
-updated_at
-```
-
----
-
-## 43. Alert Model
-
-Example:
-
-```text
-Alert
-----------------------------
-
-id
-incident_id
-service_type
-status
-assigned_operator_id
-sent_at
-accepted_at
-resolved_at
-created_at
-updated_at
-```
-
-Possible service types:
-
-```text
-POLICE
-AMBULANCE
-POMPIERS
-DEPANNAGE
-```
-
-Possible alert statuses:
-
-```text
-PENDING
-SENT
-ACCEPTED
-EN_ROUTE
-ON_SCENE
-RESOLVED
-DECLINED
-```
-
----
-
-## 44. Example Incident JSON
-
-```json
-{
-  "id": "INC-1001",
-  "location": {
-    "latitude": 48.8566,
-    "longitude": 2.3522
-  },
-  "severity": "HIGH",
-  "confidence": 0.87,
-  "vehicles": 3,
-  "possibleInjuries": true,
-  "status": "WAITING_FOR_OPERATOR"
-}
-```
-
----
-
-## 45. Example AI Suggestion
-
-```json
-{
-  "incidentId": "INC-1001",
-  "recommendedServices": [
-    "POLICE",
-    "AMBULANCE",
-    "POMPIERS"
-  ]
-}
-```
-
-The Admin Operator can modify this selection before sending the alert.
-
----
-
-## 46. Suggested API Endpoints
-
-### Authentication
-
-```text
-POST /api/auth/login
-POST /api/auth/logout
-```
-
-### Operators
-
-```text
-GET  /api/operators/me
-POST /api/operators/pause
-POST /api/operators/resume
-POST /api/operators/heartbeat
-```
-
-### Incidents
-
-```text
-GET  /api/incidents
-GET  /api/incidents/{id}
-GET  /api/incidents/{id}/stations
-POST /api/incidents
-POST /api/incidents/{id}/assign
-POST /api/incidents/{id}/send
-POST /api/incidents/{id}/decline
-POST /api/incidents/{id}/status
-```
-
-### Alerts
-
-```text
-GET  /api/alerts
-GET  /api/alerts/{id}
-POST /api/alerts/{id}/accept
-POST /api/alerts/{id}/status
-```
-
-### Statistics
-
-```text
-GET /api/statistics
-```
-
----
-
-## 47. Database / Concurrency Recommendation
-
-Incident assignment must be atomic.
-
-Two Admin Operators must never acquire the same incident.
-
-The backend should:
-
-1. Start a database transaction
-2. Select an available incident
-3. Lock the database row
-4. Verify that it is still unassigned
-5. Assign it to exactly one operator
-6. Commit the transaction
-
-PostgreSQL should be the source of truth.
-
-React only displays the state received from the backend.
-
----
-
-## 48. Accident Detection
-
-The system analyzes video using OpenCV and YOLO.
-
-Possible detected elements:
-
-```text
-car
-truck
-motorcycle
-person
-accident
-```
-
-For the MVP, the accident model should focus on reliable incident detection rather than many classes.
-
----
-
-## 49. Detection Confirmation
-
-A single frame should not automatically trigger an incident.
-
-Example:
-
-```text
-Frame 1 → Accident 88%
-Frame 2 → Accident 91%
-Frame 3 → Accident 90%
-Frame 4 → Accident 86%
-Frame 5 → Accident 93%
-```
-
-Possible MVP rule:
-
-```text
-At least 3 positive detections
-with confidence >= 80%
-within the last 5 analyzed frames
-```
-
-This helps reduce false positives.
-
----
-
-## 50. Severity Analysis
-
-The MVP can initially use simple rules rather than a separate AI severity model.
-
-Example:
-
-```python
-def calculate_severity(
-    people_involved: int,
-    vehicles_involved: int,
-    fire_detected: bool,
-    overturned_vehicle: bool
-) -> str:
-
-    if fire_detected or overturned_vehicle or people_involved >= 3:
-        return "HIGH"
-
-    if vehicles_involved >= 2 or people_involved > 0:
-        return "MEDIUM"
-
-    return "LOW"
-```
-
-A dedicated AI severity model can be added later.
-
----
-
-## 51. Map
-
-Leaflet and OpenStreetMap are used for incident visualization.
-
-The map can show:
-
-- Incident location
-- Severity
-- Incident status
-- Selected incident
-- Assigned service
-
-For the MVP, GPS coordinates may be simulated.
-
----
-
-## 52. MVP Scope
-
-The MVP focuses on this workflow:
-
-```text
-Video
-   ↓
-AI Detection
-   ↓
-Incident Created
-   ↓
-Find Available Admin
-   ↓
-Assign + Lock
-   ↓
-Admin Reviews Video
-   ↓
-AI Suggests Services
-   ↓
-Admin Confirms / Modifies
-   ↓
-Send or Decline
-   ↓
-Selected Service Operators Receive Alert
-   ↓
-Operator Updates Status
-   ↓
-Incident Resolved
-```
-
----
-
-## 53. Features Not Included in the MVP
-
-The prototype does not include real connections to:
-
-- Police systems
-- SAMU systems
-- Pompiers systems
-- Municipal emergency systems
-- Real city CCTV infrastructure
-- Automatic emergency calls
-- Automatic dispatch systems
-
-These behaviors are simulated.
-
----
-
-## 54. Recommended Development Order
-
-To keep development fast and manageable:
-
-```text
-1. Frontend skeleton
-        ↓
-2. Login + roles
-        ↓
-3. FastAPI backend
-        ↓
-4. PostgreSQL database
-        ↓
-5. Incident CRUD
-        ↓
-6. Operator ACTIVE / PAUSED / BUSY / OFFLINE
-        ↓
-7. Incident assignment + locking
-        ↓
-8. Map
-        ↓
-9. Video display
-        ↓
-10. AI detection
-        ↓
-11. AI service suggestion
-        ↓
-12. Human validation
-        ↓
-13. Alerts
-        ↓
-14. Service operator workflow
-        ↓
-15. Statistics
-```
-
-The complete workflow should work before adding more advanced AI features.
-
----
-
-## 55. Final System Workflow
-
-```text
-                    CAMERA / VIDEO
-                           ↓
-                      AI DETECTION
-                           ↓
-                    INCIDENT CREATED
-                           ↓
-                 AVAILABLE ADMIN?
-                   /            \
-                 YES             NO
-                  ↓               ↓
-            ASSIGN + LOCK      WAITING QUEUE
-                  ↓
-             ADMIN REVIEW
-                  ↓
-             WATCH VIDEO
-                  ↓
-             AI SUGGESTION
-                  ↓
-            HUMAN VALIDATION
-                  ↓
-      ┌───────────┴───────────┐
-      ↓                       ↓
- SEND ALERT                DECLINE
-      ↓
-Selected Services
-      ↓
-Police / Ambulance /
-Pompiers / Dépannage
-      ↓
-Available Service Operator
-      ↓
-Accept Intervention
-      ↓
-EN_ROUTE
-      ↓
-ON_SCENE
-      ↓
-RESOLVED
-```
-
----
-
-## 56. Key Design Rule
-
-The most important design rule is:
-
-```text
-AI detects
-    ↓
-AI recommends
-    ↓
-Human validates
-    ↓
-System sends
-```
-
-Nexora SafeRoad is designed as a **decision-support platform**.
-
-It does not replace emergency operators.
-
-It helps them react faster while keeping a human in control.
-
-
----
-
-## Project
-
-**Nexora SafeRoad**
-
-SafeCity / DataCity Project 
-
-**EFREI — 2026**
+## Technology
+
+| Part | Stack |
+|---|---|
+| AI | Python 3.12, Ultralytics YOLO11, OpenCV, PyTorch |
+| Backend | FastAPI, SQLAlchemy 2, Pydantic 2, PostgreSQL / SQLite, Uvicorn |
+| Frontend | React 19, TypeScript (strict), Vite, React Router, Leaflet / OpenStreetMap, Recharts |
+| Tooling | Docker Compose, unittest, Vitest + Testing Library |
+
+## Scope and limits
+
+- The emergency services are the service operator accounts of the platform: alerts reach their
+  console. There is no connection to external emergency systems or automatic calls.
+- Camera positions are configured per camera (`--lat/--lon`); there is no camera registry yet.
+- Severity comes from fixed rules on what the AI counted, not from a dedicated model.
+- The console refreshes every 5 seconds (no push channel); lists show the 100 most recent
+  incidents.
+- Driving times to stations are estimates from straight-line distance (no routing).
+- Schema changes beyond new nullable columns need a migration tool (none set up yet).
+
+## Credits and license
+
+- Pretrained accident model: [Enos-123/traffic-accident-detection-yolo11x](https://huggingface.co/Enos-123/traffic-accident-detection-yolo11x) (MIT).
+- Map tiles and station data © [OpenStreetMap](https://www.openstreetmap.org/copyright) contributors (ODbL).
+- Code released under the [MIT License](LICENSE).
+
+**Nexora SafeRoad** — SafeCity / DataCity project, EFREI 2026.

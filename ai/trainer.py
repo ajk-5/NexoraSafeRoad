@@ -1,10 +1,10 @@
-"""Training worker for the admin "AI Training" page.
+"""Training worker for the super admin's "AI & Training Data" page.
 
     python -m ai.trainer --backend http://localhost:8000 [--device 0]
 
-Run it on the machine with the GPU. It claims the training jobs admins queue, prepares the
+Run it on the machine with the GPU. It claims the training jobs the super admin queues, prepares the
 dataset (plus operator feedback), fine-tunes YOLO with ultralytics, reports progress after
-every epoch and uploads the trained weights. Admins then compare models and activate one.
+every epoch and uploads the trained weights. The super admin then compares models and activates one.
 """
 from __future__ import annotations
 
@@ -269,7 +269,7 @@ class _Poster(Protocol):
 
 
 class ProgressReporter:
-    """Reports every epoch to the backend, and stops training when an admin cancels."""
+    """Reports every epoch to the backend, and stops training when the super admin cancels."""
 
     def __init__(self, client: _Poster, job_id: int, worker_name: str, logs: LogBuffer):
         self.client, self.job_id, self.worker_name, self.logs = client, job_id, worker_name, logs

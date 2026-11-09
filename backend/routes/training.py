@@ -6,7 +6,7 @@ from fastapi.responses import FileResponse
 
 from .. import config
 from ..database import utcnow
-from ..deps import DB, AdminOperator, ai_client
+from ..deps import DB, SuperAdminOperator, ai_client
 from ..errors import BadRequest, NotFound
 from ..models import AIModel, TrainingDataset, TrainingJob, TrainingStatus
 from ..schemas.training import (
@@ -127,7 +127,7 @@ async def save_upload(request: Request, limit_bytes: int, suffix: str) -> tuple[
 
 
 @router.get("/overview", response_model=TrainingOverview)
-def overview(db: DB, _: AdminOperator):
+def overview(db: DB, _: SuperAdminOperator):
     worker = training_service.latest_worker(db)
     active = training_service.active_model(db)
     false_alarms, confirmed = training_service.feedback_counts(db)
@@ -148,50 +148,50 @@ def overview(db: DB, _: AdminOperator):
 
 
 @router.get("/models", response_model=list[AIModelOut])
-def list_models(db: DB, _: AdminOperator):
+def list_models(db: DB, _: SuperAdminOperator):
     return [model_out(m) for m in training_service.list_models(db)]
 
 
 @router.post("/models/{model_id}/activate", response_model=AIModelOut)
-def activate_model(model_id: int, db: DB, _: AdminOperator):
+def activate_model(model_id: int, db: DB, _: SuperAdminOperator):
     model = training_service.activate_model(db, model_id)
     db.commit()
     return model_out(model)
 
 
 @router.get("/datasets", response_model=list[DatasetOut])
-def list_datasets(db: DB, _: AdminOperator):
+def list_datasets(db: DB, _: SuperAdminOperator):
     return [dataset_out(d) for d in dataset_service.list_datasets(db)]
 
 
 @router.post("/datasets", response_model=DatasetOut, status_code=201)
-async def upload_dataset(request: Request, db: DB, admin: AdminOperator, name: str = Query(min_length=1, max_length=100)):
+async def upload_dataset(request: Request, db: DB, superadmin: SuperAdminOperator, name: str = Query(min_length=1, max_length=100)):
     """Upload a YOLO-format zip as the raw request body (Content-Type: application/zip)."""
     upload, size = await save_upload(request, config.MAX_DATASET_MB * 1_000_000, ".zip")
-    dataset = dataset_service.add_dataset(db, name.strip(), upload, size, admin)
+    dataset = dataset_service.add_dataset(db, name.strip(), upload, size, superadmin)
     db.commit()
     return dataset_out(dataset)
 
 
 @router.get("/jobs", response_model=list[TrainingJobOut])
-def list_jobs(db: DB, _: AdminOperator):
+def list_jobs(db: DB, _: SuperAdminOperator):
     return [job_out(j) for j in training_service.list_jobs(db)]
 
 
 @router.post("/jobs", response_model=TrainingJobOut, status_code=201)
-def create_job(body: TrainingJobCreate, db: DB, admin: AdminOperator):
-    job = training_service.create_job(db, body, admin)
+def create_job(body: TrainingJobCreate, db: DB, superadmin: SuperAdminOperator):
+    job = training_service.create_job(db, body, superadmin)
     db.commit()
     return job_out(training_service.get_job(db, job.id))
 
 
 @router.get("/jobs/{job_id}", response_model=TrainingJobOut)
-def get_job(job_id: int, db: DB, _: AdminOperator):
+def get_job(job_id: int, db: DB, _: SuperAdminOperator):
     return job_out(training_service.get_job(db, job_id), with_log=True)
 
 
 @router.post("/jobs/{job_id}/cancel", response_model=TrainingJobOut)
-def cancel_job(job_id: int, db: DB, _: AdminOperator):
+def cancel_job(job_id: int, db: DB, _: SuperAdminOperator):
     training_service.cancel_job(db, job_id, utcnow())
     db.commit()
     return job_out(training_service.get_job(db, job_id), with_log=True)

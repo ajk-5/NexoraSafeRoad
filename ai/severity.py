@@ -1,4 +1,4 @@
-"""Rule-based accident severity for the MVP (see "Severity Analysis" in the README).
+"""Rule-based accident severity for the MVP (see "Severity" in ai/README.md).
 
 Which services to alert is decided by the backend from the same observations
 (backend/services/ai_service.py)."""

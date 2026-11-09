@@ -1,7 +1,7 @@
 // Shapes of the backend's JSON (see backend/schemas). Dates are ISO 8601 strings in UTC.
 
-export type Role = "ADMIN" | "POLICE" | "AMBULANCE" | "POMPIERS" | "DEPANNAGE";
-export type ServiceType = Exclude<Role, "ADMIN">;
+export type Role = "SUPERADMIN" | "ADMIN" | "POLICE" | "AMBULANCE" | "POMPIERS" | "DEPANNAGE";
+export type ServiceType = Exclude<Role, "ADMIN" | "SUPERADMIN">;
 export type OperatorStatus = "ACTIVE" | "BUSY" | "PAUSED" | "OFFLINE";
 export type Severity = "LOW" | "MEDIUM" | "HIGH";
 export type IncidentStatus =
@@ -26,6 +26,14 @@ export interface Operator {
   lastSeenAt: string | null;
   /** Incident under review (admin) or current intervention (service operator). */
   currentIncidentId: number | null;
+}
+
+/** A new account, created by the super admin. */
+export interface OperatorCreate {
+  username: string;
+  displayName: string;
+  role: Role;
+  password: string;
 }
 
 export interface LoginResponse {
@@ -89,6 +97,8 @@ export interface Incident {
   videoUrl: string | null;
   status: IncidentStatus;
   detectedAt: string;
+  /** When the admin confirmed a real accident; null while it is only the AI's suspicion. */
+  confirmedAt: string | null;
   decidedAt: string | null;
   resolvedAt: string | null;
   assignedAdmin: string | null;

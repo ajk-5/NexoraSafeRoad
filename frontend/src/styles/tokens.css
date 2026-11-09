@@ -1,0 +1,210 @@
+/* Design tokens. Every colour, size and shadow used by the interface comes from here.
+   Light is the default; <html data-theme="dark"> (services/theme.ts) switches to dark. */
+
+:root {
+  color-scheme: light;
+
+  /* Surfaces */
+  --bg: #f8fafc;
+  --surface: #ffffff;
+  --surface-2: #f1f5f9; /* subtle fills: hover, inputs on panels, table headers */
+  --surface-3: #e2e8f0;
+  --overlay: rgb(15 23 42 / 0.45);
+
+  /* Text (all pass WCAG AA on --surface and --bg) */
+  --text: #0f172a;
+  --text-2: #475569;
+  --text-3: #5d6b80;
+  --text-on-color: #ffffff;
+
+  /* Lines */
+  --border: #e2e8f0;
+  --border-strong: #cbd5e1;
+
+  /* Navigation (stays dark in both themes) */
+  --nav-bg: #0f172a;
+  --nav-border: #1e293b;
+  --nav-text: #cbd5e1;
+  --nav-text-muted: #94a3b8;
+  --nav-hover: #1e293b;
+  --nav-active: #1e3a8a;
+  --nav-active-text: #ffffff;
+
+  /* Primary action */
+  --primary: #2563eb;
+  --primary-hover: #1d4ed8;
+  --primary-soft: #eff6ff;
+  --primary-soft-border: #bfdbfe;
+  --primary-text: #1d4ed8;
+  --focus-ring: #2563eb;
+  /* Filled buttons: white text stays at 4.5:1 or more in both themes. */
+  --primary-solid: #2563eb;
+  --primary-solid-hover: #1d4ed8;
+  --danger-solid: #dc2626;
+  --danger-solid-hover: #b91c1c;
+
+  /* Feedback */
+  --danger: #dc2626;
+  --danger-hover: #b91c1c;
+  --danger-soft: #fef2f2;
+  --danger-border: #fecaca;
+  --danger-text: #b91c1c;
+  --warning-soft: #fffbeb;
+  --warning-border: #fde68a;
+  --warning-text: #92400e;
+  --success: #15803d;
+  --success-soft: #f0fdf4;
+  --success-border: #bbf7d0;
+  --success-text: #166534;
+  --info-soft: #eff6ff;
+  --info-border: #bfdbfe;
+  --info-text: #1e40af;
+
+  /* Severity (labels.ts SEVERITY_COLORS uses the same fills for maps and charts) */
+  --sev-high: #dc2626;
+  --sev-high-soft: #fef2f2;
+  --sev-high-text: #b91c1c;
+  --sev-medium: #ca8a04;
+  --sev-medium-soft: #fefce8;
+  --sev-medium-text: #854d0e;
+  --sev-low: #15803d;
+  --sev-low-soft: #f0fdf4;
+  --sev-low-text: #166534;
+
+  /* Workflow status dots */
+  --status-waiting: #d97706;
+  --status-review: #2563eb;
+  --status-sent: #7c3aed;
+  --status-progress: #0891b2;
+  --status-done: #15803d;
+  --status-closed: #64748b;
+
+  /* AI-generated information */
+  --ai-bg: #f0f9ff;
+  --ai-border: #bae6fd;
+  --ai-text: #075985;
+
+  /* Spacing scale: 4 8 12 16 24 32 48 */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+
+  /* Type */
+  --font: "Inter Variable", "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --font-mono: ui-monospace, "Cascadia Mono", "SFMono-Regular", Menlo, Consolas, monospace;
+  --text-xs: 12px;
+  --text-sm: 13px;
+  --text-base: 14px;
+  --text-md: 15px;
+  --text-lg: 17px;
+  --text-xl: 20px;
+  --text-2xl: 24px;
+  --text-3xl: 30px;
+
+  /* Shape */
+  --radius-sm: 6px;
+  --radius: 8px;
+  --radius-lg: 12px;
+  --radius-full: 999px;
+  --shadow-sm: 0 1px 2px rgb(15 23 42 / 0.05);
+  --shadow: 0 1px 3px rgb(15 23 42 / 0.08), 0 1px 2px rgb(15 23 42 / 0.04);
+  --shadow-lg: 0 12px 32px rgb(15 23 42 / 0.16), 0 2px 6px rgb(15 23 42 / 0.08);
+
+  /* Controls (primary actions are 44-48 px high) */
+  --control-sm: 32px;
+  --control: 40px;
+  --control-lg: 48px;
+
+  /* Layout */
+  --sidebar-width: 232px;
+  --rail-width: 88px;
+  --header-height: 60px;
+  --queue-width: 336px;
+
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+  --duration: 150ms;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --bg: #0b1120;
+  --surface: #111a2c;
+  --surface-2: #17223a;
+  --surface-3: #22304b;
+  --overlay: rgb(2 6 23 / 0.7);
+
+  --text: #e2e8f0;
+  --text-2: #a9b6c9;
+  --text-3: #8b99ae;
+
+  --border: #22304b;
+  --border-strong: #33435f;
+
+  --nav-bg: #070c18;
+  --nav-border: #17223a;
+  --nav-hover: #17223a;
+  --nav-active: #1e3a8a;
+
+  --primary: #3b82f6;
+  --primary-hover: #60a5fa;
+  --primary-soft: rgb(59 130 246 / 0.14);
+  --primary-soft-border: rgb(96 165 250 / 0.35);
+  --primary-text: #93c5fd;
+  --focus-ring: #60a5fa;
+  --primary-solid: #2563eb;
+  --primary-solid-hover: #1d4ed8;
+  --danger-solid: #dc2626;
+  --danger-solid-hover: #b91c1c;
+
+  --danger: #ef4444;
+  --danger-hover: #f87171;
+  --danger-soft: rgb(239 68 68 / 0.13);
+  --danger-border: rgb(248 113 113 / 0.35);
+  --danger-text: #fca5a5;
+  --warning-soft: rgb(245 158 11 / 0.12);
+  --warning-border: rgb(251 191 36 / 0.3);
+  --warning-text: #fcd34d;
+  --success: #22c55e;
+  --success-soft: rgb(34 197 94 / 0.12);
+  --success-border: rgb(74 222 128 / 0.3);
+  --success-text: #86efac;
+  --info-soft: rgb(59 130 246 / 0.12);
+  --info-border: rgb(96 165 250 / 0.3);
+  --info-text: #93c5fd;
+
+  --sev-high: #ef4444;
+  --sev-high-soft: rgb(239 68 68 / 0.15);
+  --sev-high-text: #fca5a5;
+  --sev-medium: #eab308;
+  --sev-medium-soft: rgb(234 179 8 / 0.14);
+  --sev-medium-text: #fde047;
+  --sev-low: #22c55e;
+  --sev-low-soft: rgb(34 197 94 / 0.13);
+  --sev-low-text: #86efac;
+
+  --status-waiting: #f59e0b;
+  --status-review: #60a5fa;
+  --status-sent: #a78bfa;
+  --status-progress: #22d3ee;
+  --status-done: #4ade80;
+  --status-closed: #94a3b8;
+
+  --ai-bg: rgb(14 165 233 / 0.1);
+  --ai-border: rgb(56 189 248 / 0.3);
+  --ai-text: #7dd3fc;
+
+  --shadow-sm: none;
+  --shadow: 0 1px 2px rgb(0 0 0 / 0.3);
+  --shadow-lg: 0 16px 40px rgb(0 0 0 / 0.5);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration: 0ms;
+  }
+}

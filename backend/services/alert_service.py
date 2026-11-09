@@ -19,7 +19,7 @@ _LOAD = (selectinload(Alert.incident), selectinload(Alert.assigned_operator))
 
 def visible_to(db: Session, viewer: Operator, status: AlertStatus | None = None, limit: int = 100) -> Sequence[Alert]:
     stmt = select(Alert).options(*_LOAD).order_by(Alert.sent_at.desc(), Alert.id.desc()).limit(limit)
-    if not viewer.is_admin:
+    if not viewer.sees_everything:
         stmt = stmt.where(Alert.service_type == viewer.service)
     if status is not None:
         stmt = stmt.where(Alert.status == status)
@@ -31,7 +31,7 @@ def get_visible(db: Session, viewer: Operator, alert_id: int, *, for_update: boo
     if for_update:
         stmt = stmt.with_for_update(of=Alert).execution_options(populate_existing=True)
     alert = db.scalar(stmt)
-    if alert is None or not (viewer.is_admin or alert.service_type == viewer.service):
+    if alert is None or not (viewer.sees_everything or alert.service_type == viewer.service):
         raise NotFound("ALERT_NOT_FOUND", f"Alert {alert_id} does not exist.")
     return alert
 
