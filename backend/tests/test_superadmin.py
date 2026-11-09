@@ -2,12 +2,14 @@
 import unittest
 
 from sqlalchemy import select
+from unittest import mock
 
+from backend import config
 from backend.models import Operator, Role
-from backend.seed import DEMO_PASSWORD, seed_demo_operators
+from backend.seed import seed_demo_operators
 from backend.tests.base import ApiTestCase
 
-NEW_ACCOUNT = {"username": "police2", "displayName": "Police Operator 02", "role": "POLICE", "password": "longenough"}
+NEW_ACCOUNT = {"username": "police2", "displayName": "Police Operator 02", "role": "POLICE", "password": "Three otters cross a river!"}
 
 
 class PermissionsTest(ApiTestCase):
@@ -60,7 +62,7 @@ class AccountsTest(ApiTestCase):
     def test_creates_an_account_that_can_sign_in(self):
         created = self.post("/api/operators", self.superadmin, NEW_ACCOUNT, expect=201)
         self.assertEqual((created["username"], created["displayName"], created["role"], created["status"]), ("police2", "Police Operator 02", "POLICE", "OFFLINE"))
-        response = self.client.post("/api/auth/login", json={"role": "POLICE", "username": "police2", "password": "longenough"})
+        response = self.client.post("/api/auth/login", json={"username": "police2", "password": NEW_ACCOUNT["password"]})
         self.assertEqual(response.status_code, 200, response.text)
 
     def test_usernames_are_unique_whatever_the_case(self):
@@ -69,7 +71,7 @@ class AccountsTest(ApiTestCase):
         self.assertEqual(error["error"], "USERNAME_TAKEN")
 
     def test_rejects_invalid_accounts(self):
-        for bad in [{"password": "short"}, {"username": "no spaces"}, {"username": "ab"}, {"role": "KING"}, {"displayName": ""}]:
+        for bad in [{"password": "short"}, {"password": "passwordpassword"}, {"password": "a" * 20}, {"password": "x" * 129}, {"username": "no spaces"}, {"username": "ab"}, {"role": "KING"}, {"displayName": ""}]:
             with self.subTest(bad):
                 self.post("/api/operators", self.superadmin, {**NEW_ACCOUNT, **bad}, expect=422)
 
@@ -81,12 +83,12 @@ class AccountsTest(ApiTestCase):
 class SeedTest(ApiTestCase):
     def test_an_existing_database_gets_the_demo_superadmin(self):
         self.add_operator("admin1", Role.ADMIN)  # created before the role existed
-        with self.Session() as db:
+        with self.Session() as db, mock.patch.object(config, "DEMO_PASSWORD", NEW_ACCOUNT["password"]):
             seed_demo_operators(db)
             seed_demo_operators(db)  # only once
             superadmins = db.scalars(select(Operator).where(Operator.role == Role.SUPERADMIN)).all()
         self.assertEqual([o.username for o in superadmins], ["superadmin"])
-        response = self.client.post("/api/auth/login", json={"role": "SUPERADMIN", "username": "superadmin", "password": DEMO_PASSWORD})
+        response = self.client.post("/api/auth/login", json={"username": "superadmin", "password": NEW_ACCOUNT["password"]})
         self.assertEqual(response.status_code, 200, response.text)
 
 

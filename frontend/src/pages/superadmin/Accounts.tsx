@@ -10,6 +10,7 @@ import { workspacePath } from "../../paths";
 import { api, errorMessage } from "../../services/api";
 import { useOperator } from "../../services/auth";
 import { usePolling } from "../../services/usePolling";
+import { PASSWORD_REQUIREMENTS, passwordError } from "../../services/passwordPolicy";
 import type { Operator, Role } from "../../types/api";
 
 /** Every account: create new ones, and see who is available and working on what. */
@@ -66,6 +67,8 @@ export function CreateAccount({ onCreated }: { onCreated: () => void }) {
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     if (busy || mismatch) return;
+    const invalid = passwordError(form.password);
+    if (invalid) { setError(invalid); return; }
     setBusy(true);
     setError(null);
     setCreated(null);
@@ -141,14 +144,14 @@ export function CreateAccount({ onCreated }: { onCreated: () => void }) {
             type="password"
             value={form.password}
             onChange={set("password")}
-            minLength={8}
+            minLength={15}
             maxLength={128}
             required
             autoComplete="new-password"
             aria-describedby="password-hint"
           />
           <span className="field-hint" id="password-hint">
-            At least 8 characters. Share it with the person directly.
+            {PASSWORD_REQUIREMENTS} Share it with the person directly.
           </span>
         </div>
         <div className="field">

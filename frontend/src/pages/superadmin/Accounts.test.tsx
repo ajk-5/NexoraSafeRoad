@@ -18,7 +18,7 @@ beforeEach(() => {
   api.createOperator.mockReset();
 });
 
-async function fill(password = "longenough", confirm = password) {
+async function fill(password = "Three otters cross a river!", confirm = password) {
   await userEvent.type(screen.getByLabelText("Full name"), "Police Operator 02");
   await userEvent.type(screen.getByLabelText("Username"), "police2");
   await userEvent.selectOptions(screen.getByLabelText("Role"), "POLICE");
@@ -33,14 +33,14 @@ describe("create an account (super admin)", () => {
     render(<CreateAccount onCreated={onCreated} />);
     await fill();
     await userEvent.click(screen.getByRole("button", { name: "Create account" }));
-    expect(api.createOperator).toHaveBeenCalledWith({ displayName: "Police Operator 02", username: "police2", role: "POLICE", password: "longenough" });
+    expect(api.createOperator).toHaveBeenCalledWith({ displayName: "Police Operator 02", username: "police2", role: "POLICE", password: "Three otters cross a river!" });
     expect(await screen.findByText(/created \(Police\)/)).toBeTruthy();
     expect(onCreated).toHaveBeenCalled();
   });
 
   it("will not submit two different passwords", async () => {
     render(<CreateAccount onCreated={vi.fn()} />);
-    await fill("longenough", "different1");
+    await fill("Three otters cross a river!", "different1");
     expect(screen.getByText("The two passwords are different.")).toBeTruthy();
     expect((screen.getByRole("button", { name: "Create account" }) as HTMLButtonElement).disabled).toBe(true);
     expect(api.createOperator).not.toHaveBeenCalled();

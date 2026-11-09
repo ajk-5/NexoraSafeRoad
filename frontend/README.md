@@ -21,8 +21,9 @@ npm run dev          # http://localhost:5173
 The dev server forwards `/api` and `/media` to the backend at `http://localhost:8000`.
 To use another address: `BACKEND_URL=http://host:port npm run dev`.
 
-Sign in by choosing the role in **Sign in as**, then the account (password `saferoad` for the demo
-accounts): `superadmin`, `admin1`–`admin3`, `police1`, `ambulance1`, `pompiers1`, `depannage1`.
+Sign in with your username and password; the server detects your role and opens its dashboard automatically. New demo accounts use `DEMO_PASSWORD` from the root `.env` and are created only when `SEED_DEMO_OPERATORS=1`: `superadmin`, `admin1`–`admin3`, `police1`, `ambulance1`, `pompiers1`, `depannage1`.
+
+Use **Settings → Change password** to update an existing password. New or changed passwords must be 15–128 characters and avoid common passwords and repeated patterns. Long passphrases are supported. The root `.env` also supplies `BACKEND_URL`; only `VITE_` variables are exposed to client code, so keep credentials out of them.
 
 ```bash
 npm test             # unit and component tests (Vitest + Testing Library, jsdom)

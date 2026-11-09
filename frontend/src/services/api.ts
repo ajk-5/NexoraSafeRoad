@@ -8,7 +8,6 @@ import type {
   LoginResponse,
   Operator,
   OperatorCreate,
-  Role,
   ServiceStations,
   ServiceType,
   StationChoice,
@@ -80,8 +79,9 @@ function isErrorBody(body: unknown): body is { error: string; message: string } 
 }
 
 async function request<T>(method: "GET" | "POST", path: string, body?: unknown): Promise<T> {
+  const requestToken = token;
   const headers: Record<string, string> = {};
-  if (token !== null) headers.Authorization = `Bearer ${token}`;
+  if (requestToken !== null) headers.Authorization = `Bearer ${requestToken}`;
   if (body !== undefined) headers["Content-Type"] = "application/json";
 
   let response: Response;
@@ -97,7 +97,7 @@ async function request<T>(method: "GET" | "POST", path: string, body?: unknown):
   }
   reportReachable(response.status);
 
-  if (!response.ok) throw failure(response.status, await response.json().catch(() => null), path);
+  if (!response.ok) throw failure(response.status, await response.json().catch(() => null), path, requestToken);
   // The backend's JSON matches the types in types/api.ts (see backend/schemas).
   return (response.status === 204 ? undefined : await response.json()) as T;
 }
@@ -109,8 +109,8 @@ function reportReachable(status: number): void {
 }
 
 /** The error for a failed response; signs out when the session was rejected. */
-function failure(status: number, body: unknown, path: string): ApiError {
-  if (status === 401 && token !== null && path !== "/auth/login") {
+function failure(status: number, body: unknown, path: string, requestToken: string | null): ApiError {
+  if (status === 401 && token !== null && token === requestToken && path !== "/auth/login") {
     setToken(null);
     onUnauthorized();
   }
@@ -120,11 +120,12 @@ function failure(status: number, body: unknown, path: string): ApiError {
 
 /** Upload a dataset zip. Uses XMLHttpRequest because fetch cannot report upload progress. */
 function uploadDataset(name: string, file: File, onProgress: (fraction: number) => void): Promise<TrainingDataset> {
+  const requestToken = token;
   const path = `/training/datasets${query({ name })}`;
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.open("POST", `/api${path}`);
-    if (token !== null) xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+    if (requestToken !== null) xhr.setRequestHeader("Authorization", `Bearer ${requestToken}`);
     xhr.setRequestHeader("Content-Type", "application/zip");
     xhr.upload.onprogress = (event) => {
       if (event.lengthComputable) onProgress(event.loaded / event.total);
@@ -138,7 +139,7 @@ function uploadDataset(name: string, file: File, onProgress: (fraction: number) 
         // not JSON: reported as a generic error below
       }
       if (xhr.status >= 200 && xhr.status < 300) resolve(body as TrainingDataset);
-      else reject(failure(xhr.status, body, path));
+      else reject(failure(xhr.status, body, path, requestToken));
     };
     xhr.onerror = () => {
       reportFailure();
@@ -154,8 +155,10 @@ function query(params: Record<string, string | undefined>): string {
 }
 
 export const api = {
-  login: (role: Role, username: string, password: string) =>
-    request<LoginResponse>("POST", "/auth/login", { role, username, password }),
+  login: (username: string, password: string) =>
+    request<LoginResponse>("POST", "/auth/login", { username, password }),
+  changePassword: (currentPassword: string, newPassword: string) =>
+    request<LoginResponse>("POST", "/auth/password", { currentPassword, newPassword }),
   logout: () => request<void>("POST", "/auth/logout"),
 
   me: () => request<Operator>("GET", "/operators/me"),

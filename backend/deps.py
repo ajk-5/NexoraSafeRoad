@@ -45,7 +45,7 @@ def service_operator(operator: Annotated[Operator, Depends(current_operator)]) -
 
 
 def ai_client(x_api_key: Annotated[str | None, Header()] = None) -> None:
-    if x_api_key is None or not hmac.compare_digest(x_api_key, config.AI_API_KEY):
+    if not config.AI_API_KEY or x_api_key is None or not hmac.compare_digest(x_api_key, config.AI_API_KEY):
         raise Unauthorized("INVALID_API_KEY", "A valid X-API-Key header is required.")
 
 

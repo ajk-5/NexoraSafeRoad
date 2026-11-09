@@ -2,16 +2,23 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from pydantic import Field
+from pydantic import Field, field_validator
 
 from ..models import OperatorStatus, Role
+from ..password_policy import validate_new_password
 from . import Schema
 
 
 class LoginRequest(Schema):
-    role: Role
     username: str = Field(min_length=1, max_length=64)
-    password: str = Field(min_length=1)
+    password: str = Field(min_length=1, max_length=128)
+
+
+class PasswordChange(Schema):
+    current_password: str = Field(min_length=1, max_length=128)
+    new_password: str
+
+    _password_policy = field_validator("new_password")(validate_new_password)
 
 
 class OperatorCreate(Schema):
@@ -20,7 +27,9 @@ class OperatorCreate(Schema):
     username: str = Field(min_length=3, max_length=64, pattern=r"^[a-zA-Z0-9._-]+$")
     display_name: str = Field(min_length=1, max_length=100)
     role: Role
-    password: str = Field(min_length=8, max_length=128)
+    password: str
+
+    _password_policy = field_validator("password")(validate_new_password)
 
 
 class OperatorOut(Schema):

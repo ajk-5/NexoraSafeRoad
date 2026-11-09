@@ -1,6 +1,6 @@
 # docker compose up --build
 #   API:      http://localhost:8000/docs
-#   Postgres: localhost:5432 (saferoad / saferoad)
+#   Postgres: localhost:5432 (credentials from .env)
 # The AI pipeline and the training worker run on the host (they need the GPU/webcam):
 #   python -m ai.main --source <video> --backend http://localhost:8000
 #   python -m ai.trainer --backend http://localhost:8000
@@ -8,15 +8,15 @@ services:
   db:
     image: postgres:17
     environment:
-      POSTGRES_USER: saferoad
-      POSTGRES_PASSWORD: saferoad
-      POSTGRES_DB: saferoad
+      POSTGRES_USER: ${POSTGRES_USER:-saferoad}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-saferoad}
     ports:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U saferoad -d saferoad"]
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
       interval: 2s
       timeout: 3s
       retries: 15
@@ -26,11 +26,13 @@ services:
       context: .
       dockerfile: backend/Dockerfile
     environment:
-      DATABASE_URL: postgresql+psycopg://saferoad:saferoad@db:5432/saferoad
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-saferoad}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@db:5432/${POSTGRES_DB:-saferoad}
       MEDIA_DIR: /data/media
       TRAINING_DIR: /data/training
-      AI_API_KEY: ${AI_API_KEY:-dev-ai-key}
-      CORS_ORIGINS: http://localhost:5173
+      AI_API_KEY: ${AI_API_KEY:?Set AI_API_KEY in .env}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173}
+      SEED_DEMO_OPERATORS: ${SEED_DEMO_OPERATORS:-0}
+      DEMO_PASSWORD: ${DEMO_PASSWORD:-}
     ports:
       - "8000:8000"
     volumes:

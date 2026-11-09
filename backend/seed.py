@@ -3,10 +3,10 @@ development (disable those with SEED_DEMO_OPERATORS=0)."""
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from . import config
 from .models import AIModel, ModelSource, Operator, Role
+from .password_policy import validate_new_password
 from .security import hash_password
-
-DEMO_PASSWORD = "saferoad"
 
 DEMO_SUPERADMIN = ("superadmin", "Super Admin", Role.SUPERADMIN)
 
@@ -31,8 +31,11 @@ def seed_demo_operators(db: Session) -> None:
         accounts = [DEMO_SUPERADMIN] if not has_superadmin and username_free else []
     else:
         accounts = DEMO_OPERATORS
+    if not accounts:
+        return
+    password = validate_new_password(config.DEMO_PASSWORD)
     db.add_all(
-        Operator(username=u, display_name=name, role=role, password_hash=hash_password(DEMO_PASSWORD))
+        Operator(username=u, display_name=name, role=role, password_hash=hash_password(password))
         for u, name, role in accounts
     )
     db.commit()

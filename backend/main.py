@@ -12,6 +12,7 @@ import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -48,6 +49,8 @@ async def sweep_forever() -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    if len(config.AI_API_KEY) < 32:
+        raise RuntimeError("Set AI_API_KEY to a random secret of at least 32 characters in .env or the environment.")
     # No migrations yet: tables are created on startup. Add Alembic once the schema settles.
     Base.metadata.create_all(engine)
     add_missing_columns(engine)
@@ -78,6 +81,12 @@ app.add_middleware(
 @app.exception_handler(ServiceError)
 async def service_error(request: Request, exc: ServiceError) -> JSONResponse:
     return JSONResponse({"error": exc.error, "message": exc.message}, status_code=exc.status_code)
+
+
+@app.exception_handler(RequestValidationError)
+async def invalid_request(request: Request, exc: RequestValidationError) -> JSONResponse:
+    # FastAPI's default validation response can echo submitted plaintext passwords.
+    return JSONResponse({"error": "INVALID_REQUEST", "message": "Check the submitted fields and password requirements."}, status_code=422)
 
 
 for module in (auth, operators, incidents, alerts, statistics, training, live):

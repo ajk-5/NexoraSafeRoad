@@ -40,7 +40,7 @@ python -m unittest discover -s backend/tests -t .
 | Variable | Default | Meaning |
 |---|---|---|
 | `DATABASE_URL` | `sqlite:///backend/saferoad.db` | e.g. `postgresql+psycopg://user:pw@host/db` |
-| `AI_API_KEY` | `dev-ai-key` | Key the AI pipeline and the training worker send in `X-API-Key` |
+| `AI_API_KEY` | Required | Random secret of at least 32 characters, sent by AI clients in `X-API-Key` |
 | `OFFLINE_TIMEOUT` | `120` | Seconds without a heartbeat before an operator is `OFFLINE` |
 | `LOCK_TIMEOUT` | `120` | Seconds without activity before an incident's lock expires |
 | `SWEEP_INTERVAL` | `10` | Seconds between timeout checks (`0` = off) |
@@ -49,10 +49,11 @@ python -m unittest discover -s backend/tests -t .
 | `MAX_DATASET_MB` | `5000` | Largest dataset zip or model file accepted |
 | `WORKER_TIMEOUT` | `60` | Seconds before a silent training worker is considered offline |
 | `STATIONS_FILE` | `backend/data/stations.json` | Police, fire, hospital and tow stations |
-| `SEED_DEMO_OPERATORS` | `1` | Create the demo accounts on first start (`0` to disable) |
+| `SEED_DEMO_OPERATORS` | `0` | Set to `1` to create demo accounts |
+| `DEMO_PASSWORD` | Required when seeding | Strong initial password for new demo accounts |
 | `CORS_ORIGINS` | `http://localhost:5173` | Comma-separated origins of the console |
 
-Change `AI_API_KEY` and the demo passwords anywhere other than a development machine.
+Copy `.env.example` to `.env` at the repository root and set unique secrets before starting. The backend loads it independently of the working directory, without overriding existing environment variables. Docker Compose also requires `POSTGRES_PASSWORD` from `.env`; it must match the current password of an existing PostgreSQL volume. Do not commit `.env` or put secrets in `VITE_` variables.
 
 ## Accounts and roles
 
@@ -62,9 +63,9 @@ Change `AI_API_KEY` and the demo passwords anywhere other than a development mac
 | `ADMIN` | Review the incident assigned to it: confirm, choose services and stations, send, decline, release; pause/resume | Statistics, training, accounts |
 | `POLICE`, `AMBULANCE`, `POMPIERS`, `DEPANNAGE` | See alerts and incidents of their own service; accept an alert and report progress | Anything outside their service |
 
-Demo accounts (password `saferoad`): `superadmin`, `admin1`–`admin3`, `police1`, `ambulance1`,
+Demo accounts (initial password from `DEMO_PASSWORD`): `superadmin`, `admin1`–`admin3`, `police1`, `ambulance1`,
 `pompiers1`, `depannage1`. A database created before the super admin role existed gets the
-`superadmin` account on the next start (unless `SEED_DEMO_OPERATORS=0`).
+`superadmin` account on the next start when `SEED_DEMO_OPERATORS=1`. Seeding validates the password and never overwrites existing account passwords.
 
 Sign-in returns a token: send `Authorization: Bearer <token>` on every other call. One session per
 account — signing in again ends the previous one. The console calls `POST /api/operators/heartbeat`
@@ -78,7 +79,8 @@ Full schemas: http://localhost:8000/docs.
 **Sign-in and operators**
 
 ```text
-POST /api/auth/login                    {role, username, password} -> {token, operator}
+POST /api/auth/login                    {username, password} -> {token, operator}; role comes from the database
+POST /api/auth/password                 {currentPassword, newPassword} -> {token, operator}; replaces the session token
 POST /api/auth/logout                   ends the session (an admin's incident goes back to the queue)
 GET  /api/operators/me                  me, with currentIncidentId
 POST /api/operators/heartbeat           every 30 s
@@ -88,7 +90,7 @@ POST /api/operators                     SUPERADMIN: {username, displayName, role
 ```
 
 New accounts: username 3–64 characters (letters, digits, `.`, `_`, `-`), unique whatever the case
-(`409 USERNAME_TAKEN`); password at least 8 characters. They start `OFFLINE` until they sign in.
+(`409 USERNAME_TAKEN`); passwords must be 15–128 characters, excluding common passwords and repeated patterns. Long passphrases, spaces and Unicode are supported. The same rules apply to password changes and new demo accounts. Existing logins keep working; users upgrade passwords in Settings. New accounts start `OFFLINE` until they sign in. Validation errors do not echo submitted passwords.
 
 **Incidents (admin review)**
 

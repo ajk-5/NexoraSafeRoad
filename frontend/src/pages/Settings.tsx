@@ -1,6 +1,7 @@
 import { useState } from "react";
 
 import { Card } from "../components/ui";
+import { ChangePassword } from "../components/ChangePassword";
 import { enableSound, playAlertSound } from "../services/alertSound";
 import { useLive } from "../services/live";
 import { DEFAULT_SETTINGS, useSettings } from "../services/settings";
@@ -13,6 +14,7 @@ export function Settings() {
   const [message, setMessage] = useState("");
   return (
     <div className="stack settings-page">
+      <ChangePassword />
       <Card title="Alert notifications">
         <div className="stack">
           <p className="small muted">Preferences are saved for your account in this browser.</p>

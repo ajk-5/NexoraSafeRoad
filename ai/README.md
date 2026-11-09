@@ -60,7 +60,7 @@ incident and its clip are also sent to the backend, where an admin reviews them.
 | `--cooldown` | `30` | Seconds before the same camera can report again |
 | `--output` | `ai/output` | Folder for clips and incident JSON |
 | `--backend` | none | Backend URL, e.g. `http://localhost:8000` |
-| `--api-key` | `$AI_API_KEY` or `dev-ai-key` | Must match the backend's `AI_API_KEY` |
+| `--api-key` | `AI_API_KEY` from .env or environment | Must match the backend's `AI_API_KEY` |
 | `--device` | auto | `0` for the first GPU, `cpu` to force the CPU |
 | `--show` | off | Display the annotated video |
 
@@ -121,7 +121,7 @@ python -m ai.trainer --backend http://localhost:8000            # add --device 0
 | Option | Default | Meaning |
 |---|---|---|
 | `--backend` | `http://localhost:8000` | Backend URL |
-| `--api-key` | `$AI_API_KEY` or `dev-ai-key` | Must match the backend's `AI_API_KEY` |
+| `--api-key` | `AI_API_KEY` from .env or environment | Must match the backend's `AI_API_KEY` |
 | `--device` | auto | `0` for the first GPU, `cpu` to force the CPU |
 | `--name` | the computer's name | Worker name shown to the super admin |
 | `--workers` | `2` | Data loader processes |

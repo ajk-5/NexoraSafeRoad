@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 
-import type { Operator, Role } from "../types/api";
+import type { Operator } from "../types/api";
 import { api, hasToken, setToken, setUnauthorizedHandler } from "./api";
 
 const HEARTBEAT_MS = 30_000; // README "Heartbeat": keeps the operator online and their incident locked
@@ -8,7 +8,8 @@ const REFRESH_MS = 5_000; // picks up a newly assigned incident quickly
 
 interface Auth {
   operator: Operator | null;
-  login: (role: Role, username: string, password: string) => Promise<Operator>;
+  login: (username: string, password: string) => Promise<Operator>;
+  changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
   logout: () => Promise<void>;
   /** Replace the operator after an action that returns it (pause, resume). */
   update: (operator: Operator) => void;
@@ -53,11 +54,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     () => ({
       operator,
       update,
-      login: async (role, username, password) => {
-        const { token, operator: signedInOperator } = await api.login(role, username, password);
+      login: async (username, password) => {
+        const { token, operator: signedInOperator } = await api.login(username, password);
         setToken(token);
         update(signedInOperator);
         return signedInOperator;
+      },
+      changePassword: async (currentPassword, newPassword) => {
+        const { token, operator: refreshed } = await api.changePassword(currentPassword, newPassword);
+        setToken(token);
+        // New identity restarts the WebSocket with the rotated token.
+        setOperator(refreshed);
       },
       logout: async () => {
         try {

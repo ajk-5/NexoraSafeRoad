@@ -9,6 +9,10 @@ import urllib.request
 from pathlib import Path
 from typing import IO, Any
 
+from dotenv import load_dotenv
+
+load_dotenv(Path(__file__).resolve().parent.parent / ".env", override=False)
+
 
 class BackendError(Exception):
     """The backend refused the request or could not be reached."""

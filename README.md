@@ -78,7 +78,7 @@ flowchart LR
 | **Admin** | `/admin` | Incident queue and review workspace: verify the clip, confirm or reject, choose services and stations, send the alert. Pause/resume availability. Incidents list, map, history. |
 | **Police, Ambulance, Firefighters, Road assistance** | `/operator` | Alerts for their own service: accept one, then *en route → on scene → resolved*. Incidents their service was alerted to, and the map. |
 
-Every role signs in on the same page by choosing its role in the **Sign in as** list.
+Every role signs in on the same page with a username and password. The server detects the stored role and opens the matching dashboard automatically.
 
 ## Features
 
@@ -137,6 +137,10 @@ flowchart TB
 
 Prerequisites: **Python 3.12**, **Node.js 22+**, and optionally **Docker** (for PostgreSQL).
 
+Copy `.env.example` to `.env` at the repository root. Set separate random values for `AI_API_KEY` (at least 32 characters) and `POSTGRES_PASSWORD`; for example, run `python -c "import secrets; print(secrets.token_hex(32))"` once per secret. The backend, AI clients and Vite read this file; Docker Compose reads it automatically. Existing environment variables take precedence. `.env` is ignored by Git and excluded from Docker builds.
+
+To create local demo accounts, set `SEED_DEMO_OPERATORS=1` and choose a strong `DEMO_PASSWORD` in `.env`. Demo seeding is disabled by default. For an existing PostgreSQL volume, use its current database password in `.env`; changing the file does not change the password inside an initialized database.
+
 ### 1. Backend
 
 With Docker (backend + PostgreSQL):
@@ -175,9 +179,9 @@ python -m ai.main --source 0 --backend http://localhost:8000 --show
 
 ## Demo accounts
 
-Created on first start (turn off with `SEED_DEMO_OPERATORS=0`). Password for all: `saferoad`.
+Created only when `SEED_DEMO_OPERATORS=1`; their initial password is `DEMO_PASSWORD` from `.env`.
 
-| Sign in as | Username |
+| Role (detected automatically) | Username |
 |---|---|
 | Super admin | `superadmin` |
 | Admin | `admin1`, `admin2`, `admin3` |
@@ -187,7 +191,7 @@ Created on first start (turn off with `SEED_DEMO_OPERATORS=0`). Password for all
 | Road assistance | `depannage1` |
 
 A database created before the super admin role existed receives the `superadmin` account on the
-next start. Change these passwords — or create real accounts and disable the seed — before
+next start when seeding is enabled. Existing account passwords are never overwritten by `.env` changes. Use **Settings → Change password** to upgrade them. New or changed passwords must be 15–128 characters and avoid common passwords and repeated patterns. Create real accounts and disable the seed before
 using the platform outside development.
 
 ## Incident and alert lifecycle

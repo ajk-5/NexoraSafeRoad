@@ -46,7 +46,7 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--cooldown", type=float, default=30.0, help="seconds before this camera can report again")
     p.add_argument("--output", default=str(AI_DIR / "output"), help="folder for clips and incident JSON")
     p.add_argument("--backend", help="backend base URL, e.g. http://localhost:8000")
-    p.add_argument("--api-key", default=os.environ.get("AI_API_KEY", "dev-ai-key"), help="backend AI_API_KEY")
+    p.add_argument("--api-key", default=os.environ.get("AI_API_KEY", ""), help="backend AI_API_KEY (loaded from .env)")
     p.add_argument("--device", help="'0' for the first GPU or 'cpu' (default: auto)")
     p.add_argument("--show", action="store_true", help="display the annotated video (press q to quit)")
     return p.parse_args()

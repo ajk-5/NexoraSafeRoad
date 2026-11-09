@@ -1,4 +1,7 @@
 .git
+.env
+.env.*
+.cache
 .venv
 **/__pycache__
 dataset

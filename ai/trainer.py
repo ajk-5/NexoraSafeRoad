@@ -408,7 +408,7 @@ def heartbeat_loop(client: BackendClient, hello: dict[str, str], stop: threading
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Nexora SafeRoad training worker")
     p.add_argument("--backend", default="http://localhost:8000", help="backend base URL")
-    p.add_argument("--api-key", default=os.environ.get("AI_API_KEY", "dev-ai-key"), help="backend AI_API_KEY")
+    p.add_argument("--api-key", default=os.environ.get("AI_API_KEY", ""), help="backend AI_API_KEY (loaded from .env)")
     p.add_argument("--device", help="'0' for the first GPU or 'cpu' (default: auto)")
     p.add_argument("--name", default=socket.gethostname(), help="worker name shown to admins")
     p.add_argument("--workers", type=int, default=2, help="dataloader worker processes")

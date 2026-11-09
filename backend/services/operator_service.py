@@ -7,7 +7,7 @@ from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
 from .. import security
-from ..errors import Conflict, Unauthorized
+from ..errors import Conflict, Forbidden, Unauthorized
 from ..models import LOCKED_STATUSES, Incident, Operator, OperatorStatus, Role
 from .assignment_service import assign_waiting_incidents, available_status, requeue, set_status
 
@@ -16,16 +16,36 @@ def find_by_token(db: Session, token: str) -> Operator | None:
     return db.scalar(select(Operator).where(Operator.token_hash == security.hash_token(token)))
 
 
-def login(db: Session, role: Role, username: str, password: str, now: datetime) -> tuple[Operator, str]:
+def login(db: Session, username: str, password: str, now: datetime) -> tuple[Operator, str]:
     """Check credentials and open a session. Returns the operator and their new token."""
-    operator = db.scalar(select(Operator).where(Operator.username == username))
-    if operator is None or operator.role != role or not security.verify_password(password, operator.password_hash):
-        raise Unauthorized("INVALID_CREDENTIALS", "Wrong username, password or role.")
+    operator = db.scalar(select(Operator).where(func.lower(Operator.username) == username.strip().lower()))
+    # Do the same expensive hash verification for an unknown username.
+    valid = security.verify_password(password, operator.password_hash if operator else _DUMMY_PASSWORD_HASH)
+    if operator is None or not valid:
+        raise Unauthorized("INVALID_CREDENTIALS", "Wrong username or password.")
     token = security.new_token()
     operator.token_hash = security.hash_token(token)
     operator.last_seen_at = now
     _come_online(db, operator, now)
     return operator, token
+
+
+_DUMMY_PASSWORD_HASH = security.hash_password(security.new_token())
+
+
+def change_password(db: Session, operator: Operator, current: str, password: str) -> str:
+    from ..password_policy import validate_new_password
+
+    if not security.verify_password(current, operator.password_hash):
+        raise Forbidden("WRONG_PASSWORD", "The current password is incorrect.")
+    if security.verify_password(password, operator.password_hash):
+        raise Conflict("PASSWORD_UNCHANGED", "Choose a different password.")
+    validate_new_password(password)
+    operator.password_hash = security.hash_password(password)
+    token = security.new_token()
+    operator.token_hash = security.hash_token(token)
+    db.flush()
+    return token
 
 
 def create(db: Session, username: str, display_name: str, role: Role, password: str) -> Operator:

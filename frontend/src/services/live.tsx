@@ -25,6 +25,7 @@ const NO_ALERTS: Promise<Alert[]> = Promise.resolve([]);
 export function LiveDataProvider({ operator, children }: { operator: Operator; children: ReactNode }) {
   const [connected, setConnected] = useState(false);
   const { update } = useAuth();
+  const token = sessionToken();
   // Only service operators work from alerts; admins and the super admin work from incidents.
   const isAdmin = operator.role === "ADMIN" || operator.role === "SUPERADMIN";
   // Polled again when the operator's work changes (e.g. a new incident was assigned to them),
@@ -32,14 +33,13 @@ export function LiveDataProvider({ operator, children }: { operator: Operator; c
   const incidents = usePolling(() => api.incidents(), [operator.id, operator.currentIncidentId]);
   const alerts = usePolling(() => (isAdmin ? NO_ALERTS : api.alerts()), [operator.id, isAdmin, operator.currentIncidentId]);
   useEffect(() => {
-    const token = sessionToken();
     if (!token) return;
     return connectLive(token, () => {
       incidents.reload();
       alerts.reload();
       void api.me().then(update, () => {});
     }, setConnected);
-  }, [operator.id, incidents.reload, alerts.reload, update]);
+  }, [operator.id, token, incidents.reload, alerts.reload, update]);
   return <LiveContext.Provider value={{ incidents, alerts, connected }}>{children}</LiveContext.Provider>;
 }
 

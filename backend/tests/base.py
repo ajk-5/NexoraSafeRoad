@@ -17,7 +17,7 @@ from backend.security import hash_password
 PASSWORD = "secret"
 _PASSWORD_HASH = hash_password(PASSWORD)  # hashed once: scrypt is deliberately slow
 Headers = dict[str, str]
-AI_HEADERS: Headers = {"X-API-Key": config.AI_API_KEY}
+AI_HEADERS: Headers = {"X-API-Key": "test-api-key-not-for-production-1234567890"}
 # A few stations near the default camera position, so tests don't depend on the real import.
 STATIONS_FILE = Path(__file__).with_name("stations.json")
 
@@ -47,6 +47,9 @@ class ApiTestCase(unittest.TestCase):
     """Each test gets an empty in-memory database and a client without the background sweeper."""
 
     def setUp(self):
+        key_patch = mock.patch.object(config, "AI_API_KEY", AI_HEADERS["X-API-Key"])
+        key_patch.start()
+        self.addCleanup(key_patch.stop)
         engine = make_engine("sqlite://", poolclass=StaticPool)
         Base.metadata.create_all(engine)
         self.Session = sessionmaker(bind=engine, expire_on_commit=False)
@@ -83,7 +86,7 @@ class ApiTestCase(unittest.TestCase):
     def login(self, username: str, role: Role = Role.ADMIN) -> Headers:
         """Create the operator, sign in, and return the auth headers."""
         self.add_operator(username, role)
-        response = self.client.post("/api/auth/login", json={"role": role, "username": username, "password": PASSWORD})
+        response = self.client.post("/api/auth/login", json={"username": username, "password": PASSWORD})
         self.assertEqual(response.status_code, 200, response.text)
         return {"Authorization": f"Bearer {response.json()['token']}"}
 
