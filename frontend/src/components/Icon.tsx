@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 
 /** A small set of line icons (24x24, drawn with currentColor), so no icon library is needed. */
 const PATHS = {
+  settings: <><path d="M4 7h16M4 17h16" /><circle cx="9" cy="7" r="3" /><circle cx="15" cy="17" r="3" /></>,
   dashboard: (
     <>
       <rect x="3" y="3" width="7" height="9" rx="1.5" />

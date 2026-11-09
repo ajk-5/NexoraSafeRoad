@@ -19,7 +19,7 @@ from fastapi.staticfiles import StaticFiles
 from . import config
 from .database import Base, SessionLocal, add_missing_columns, engine, utcnow
 from .errors import ServiceError
-from .routes import alerts, auth, incidents, operators, statistics, training
+from .routes import alerts, auth, incidents, live, operators, statistics, training
 from .seed import seed_demo_operators, seed_model_registry
 from .services import assignment_service, station_service, training_service
 
@@ -80,7 +80,7 @@ async def service_error(request: Request, exc: ServiceError) -> JSONResponse:
     return JSONResponse({"error": exc.error, "message": exc.message}, status_code=exc.status_code)
 
 
-for module in (auth, operators, incidents, alerts, statistics, training):
+for module in (auth, operators, incidents, alerts, statistics, training, live):
     app.include_router(module.router, prefix="/api")
 
 app.mount("/media", StaticFiles(directory=config.MEDIA_DIR, check_dir=False), name="media")

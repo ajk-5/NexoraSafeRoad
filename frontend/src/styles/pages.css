@@ -1,5 +1,11 @@
 /* Page-specific styles: sign-in, map, lists, analytics, training. */
 
+.settings-page { max-width: 800px; }
+.settings-actions, .sound-banner, .attention-banner { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); }
+.sound-banner, .attention-banner { padding: var(--space-3) var(--space-5); }
+.sound-banner { background: var(--warning-soft); color: var(--warning-text); border-bottom: 1px solid var(--warning-border); }
+.attention-banner { background: var(--danger-soft); color: var(--danger-text); border-bottom: 2px solid var(--danger-border); }
+
 .stack {
   display: grid;
   grid-template-columns: minmax(0, 1fr); /* wide children (filters, tables) scroll inside, not the page */

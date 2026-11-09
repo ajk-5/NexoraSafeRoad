@@ -227,3 +227,6 @@ backend/
 ├── services/            assignment, incident, alert, operator, station, statistics, training rules
 └── tests/               82 API tests (unittest + FastAPI TestClient)
 ```
+## Live updates
+
+`/api/live` is an authenticated WebSocket endpoint. Send `{"token":"<session token>"}` as the first JSON frame within five seconds. The server sends `{"type":"changed"}` initially and whenever the viewer's visible work or account changes, and `{"type":"ping"}` otherwise. It rechecks the database every second and closes revoked sessions with code 1008. Only origins in `CORS_ORIGINS` are accepted from browsers. Deployments must forward WebSocket upgrades on this path. Database reads make change detection work across API workers without an in-memory broadcast registry; large deployments should replace per-socket scans with a shared event broker.
