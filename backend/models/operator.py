@@ -28,9 +28,20 @@ class Operator(Base):
 
     @property
     def is_admin(self) -> bool:
+        """Reviews incidents: takes part in assignment and locking."""
         return self.role == Role.ADMIN
 
     @property
+    def is_superadmin(self) -> bool:
+        """Runs the platform (accounts, AI training, statistics); is never assigned incidents."""
+        return self.role == Role.SUPERADMIN
+
+    @property
+    def sees_everything(self) -> bool:
+        """Sees every incident and alert, not only those of one service."""
+        return self.is_admin or self.is_superadmin
+
+    @property
     def service(self) -> ServiceType | None:
-        """The emergency service a service operator works for (None for admins)."""
-        return None if self.is_admin else ServiceType(self.role.value)
+        """The emergency service a service operator works for (None for admins and the super admin)."""
+        return ServiceType(self.role.value) if self.role.value in ServiceType.__members__ else None

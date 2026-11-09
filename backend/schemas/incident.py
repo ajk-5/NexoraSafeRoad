@@ -71,6 +71,7 @@ class IncidentOut(Schema):
     video_url: str | None
     status: IncidentStatus
     detected_at: datetime
+    confirmed_at: datetime | None  # the admin confirmed a real accident (see POST /confirm)
     decided_at: datetime | None
     resolved_at: datetime | None
     assigned_admin: str | None  # display name of the admin reviewing (or who reviewed) it

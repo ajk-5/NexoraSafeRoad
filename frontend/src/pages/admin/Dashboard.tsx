@@ -1,71 +1,120 @@
-import { Link } from "react-router";
+import { useEffect, useRef, useState } from "react";
+import { useSearchParams } from "react-router";
 
-import { AlertStatusBadge, OperatorStatusBadge } from "../../components/Badges";
-import { IncidentMap } from "../../components/IncidentMap";
-import { DataState, PageHeader, Panel, StatTile } from "../../components/ui";
-import { formatDuration, timeAgo } from "../../format";
-import { OPEN_INCIDENT_STATUSES, ROLE_LABELS, SERVICE_LABELS } from "../../labels";
-import { api } from "../../services/api";
-import { usePolling } from "../../services/usePolling";
+import { Icon } from "../../components/Icon";
+import { IncidentQueue } from "../../components/queue/IncidentQueue";
+import { IncidentWorkspace } from "../../components/workspace/IncidentWorkspace";
+import type { QueueFilter } from "../../domain/incidents";
+import { parseId } from "../../paths";
+import { api, errorMessage } from "../../services/api";
+import { useAuth, useOperator } from "../../services/auth";
+import { useLive } from "../../services/live";
+import type { Operator } from "../../types/api";
 
+const FILTERS: QueueFilter[] = ["all", "waiting", "mine", "high"];
+
+/**
+ * The admin's workspace: what is waiting, and the selected incident with everything needed to
+ * decide on it. With no incident chosen, the one assigned to the admin opens by itself.
+ */
 export function AdminDashboard() {
-  const incidents = usePolling(() => api.incidents(), []);
-  const alerts = usePolling(() => api.alerts(), []);
-  const statistics = usePolling(() => api.statistics(), []);
-  const operators = usePolling(() => api.operators(), []);
+  const operator = useOperator();
+  const { incidents } = useLive();
+  const [params, setParams] = useSearchParams();
 
-  const open = (incidents.data ?? []).filter((i) => OPEN_INCIDENT_STATUSES.includes(i.status));
-  const waiting = open.filter((i) => i.status === "WAITING_FOR_OPERATOR").length;
-  const admins = (operators.data ?? []).filter((o) => o.role === "ADMIN");
-  const availableAdmins = admins.filter((o) => o.status === "ACTIVE").length;
-  const responseSeconds = statistics.data?.averageResponseSeconds ?? null;
+  const explicitId = parseId(params.get("incident"));
+  const selectedId = explicitId ?? operator.currentIncidentId;
+  const workspaceRef = useRef<HTMLDivElement>(null);
+  // A newly chosen incident starts at its top, not where the previous one was scrolled to.
+  useEffect(() => {
+    workspaceRef.current?.scrollTo?.({ top: 0 });
+    window.scrollTo?.({ top: 0 }); // phones scroll the page itself
+  }, [selectedId]);
+  const filterParam = params.get("filter") as QueueFilter | null;
+  const filter = filterParam && FILTERS.includes(filterParam) ? filterParam : "all";
+  const waiting = (incidents.data ?? []).filter((i) => i.status === "WAITING_FOR_OPERATOR" || i.status === "DETECTED").length;
+
+  const setFilter = (next: QueueFilter) =>
+    setParams(
+      (current) => {
+        const updated = new URLSearchParams(current);
+        if (next === "all") updated.delete("filter");
+        else updated.set("filter", next);
+        return updated;
+      },
+      { replace: true },
+    );
+
+  const linkFor = (id: number) => {
+    const target = new URLSearchParams(params);
+    target.set("incident", String(id));
+    return `?${target.toString()}`;
+  };
 
   return (
-    <>
-      <PageHeader title="Dashboard" />
-      <div className="tiles">
-        <StatTile label="Open incidents" value={open.length} tone={open.some((i) => i.severity === "HIGH") ? "danger" : undefined} />
-        <StatTile label="Waiting for an admin" value={waiting} tone={waiting > 0 ? "warning" : undefined} />
-        <StatTile label="Average response time" value={responseSeconds === null ? "—" : formatDuration(responseSeconds)} />
-        <StatTile label="Admins available" value={`${availableAdmins} / ${admins.length}`} />
+    <div className={`page-bleed dashboard${explicitId !== null ? " has-selection" : ""}`}>
+      <div className="dashboard-body">
+        <IncidentQueue
+          incidents={incidents.data}
+          error={incidents.error}
+          onRetry={incidents.reload}
+          operator={operator}
+          selectedId={selectedId}
+          filter={filter}
+          onFilter={setFilter}
+          linkFor={linkFor}
+        />
+        <div className="workspace-area" ref={workspaceRef}>
+          {selectedId === null ? <IdleWorkspace operator={operator} waiting={waiting} /> : <IncidentWorkspace key={selectedId} id={selectedId} />}
+        </div>
       </div>
+    </div>
+  );
+}
 
-      <Panel title="Live incident map">
-        <DataState error={incidents.error} loading={incidents.data === undefined} />
-        <IncidentMap incidents={open} linkBase="/admin/incidents" />
-      </Panel>
+/** Nothing selected and nothing assigned: say what happens next instead of an empty panel. */
+function IdleWorkspace({ operator, waiting }: { operator: Operator; waiting: number }) {
+  const { update } = useAuth();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const paused = operator.status === "PAUSED";
 
-      <div className="grid-2">
-        <Panel title="Recent alerts">
-          <DataState
-            error={alerts.error}
-            loading={alerts.data === undefined}
-            empty={alerts.data?.length === 0 ? "No alerts sent yet." : undefined}
-          />
-          <ul className="list">
-            {(alerts.data ?? []).slice(0, 6).map((alert) => (
-              <li key={alert.id}>
-                <Link to={`/admin/incidents/${alert.incidentId}`}>{alert.incidentReference}</Link>
-                <span>{SERVICE_LABELS[alert.serviceType]}</span>
-                <AlertStatusBadge status={alert.status} />
-                <span className="muted">{timeAgo(alert.sentAt)}</span>
-              </li>
-            ))}
-          </ul>
-        </Panel>
-        <Panel title="Operators">
-          <DataState error={operators.error} loading={operators.data === undefined} />
-          <ul className="list">
-            {(operators.data ?? []).map((operator) => (
-              <li key={operator.id}>
-                <span>{operator.displayName}</span>
-                <span className="muted">{ROLE_LABELS[operator.role]}</span>
-                <OperatorStatusBadge status={operator.status} />
-              </li>
-            ))}
-          </ul>
-        </Panel>
+  const resume = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      update(await api.resume());
+    } catch (failure) {
+      setError(errorMessage(failure));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="idle-workspace card">
+      <div className={`idle-icon${paused ? " paused" : ""}`}>
+        <Icon name={paused ? "pause" : "shieldCheck"} size="lg" />
       </div>
-    </>
+      {paused ? (
+        <>
+          <h2>You are paused</h2>
+          <p>
+            You receive no new incidents while paused.
+            {waiting > 0 && ` ${waiting} incident${waiting === 1 ? " is" : "s are"} waiting for an admin.`}
+          </p>
+          <button type="button" className="btn btn-primary btn-lg" onClick={() => void resume()} disabled={busy}>
+            <Icon name="play" />
+            {busy ? "Resuming…" : "Resume and receive incidents"}
+          </button>
+          {error && <p className="error-text" role="alert">{error}</p>}
+        </>
+      ) : (
+        <>
+          <h2>You are available</h2>
+          <p>New incidents are assigned to you automatically and open here. Pick any incident in the queue to look at it.</p>
+        </>
+      )}
+    </div>
   );
 }

@@ -2,7 +2,8 @@ from enum import StrEnum
 
 
 class Role(StrEnum):
-    ADMIN = "ADMIN"
+    SUPERADMIN = "SUPERADMIN"  # runs the platform: accounts, AI training, statistics; never reviews incidents
+    ADMIN = "ADMIN"  # reviews incidents and alerts the services
     POLICE = "POLICE"
     AMBULANCE = "AMBULANCE"
     POMPIERS = "POMPIERS"

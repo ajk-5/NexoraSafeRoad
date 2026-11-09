@@ -3,9 +3,9 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..database import utcnow
-from ..deps import DB, AdminOperator, CurrentOperator
+from ..deps import DB, CurrentOperator, SuperAdminOperator
 from ..models import Operator
-from ..schemas.operator import OperatorOut
+from ..schemas.operator import OperatorCreate, OperatorOut
 from ..services import assignment_service, operator_service
 
 router = APIRouter(prefix="/operators", tags=["operators"])
@@ -24,10 +24,18 @@ def operator_out(db: Session, operator: Operator) -> OperatorOut:
 
 
 @router.get("", response_model=list[OperatorOut])
-def list_operators(db: DB, _: AdminOperator):
-    """Everyone's availability, for the admin dashboard."""
+def list_operators(db: DB, _: SuperAdminOperator):
+    """Every account and its availability (super admin)."""
     operators = db.scalars(select(Operator).order_by(Operator.role, Operator.username)).all()
     return [operator_out(db, o) for o in operators]
+
+
+@router.post("", response_model=OperatorOut, status_code=201)
+def create_operator(body: OperatorCreate, db: DB, _: SuperAdminOperator):
+    """Create an account: an admin, a service operator or another super admin."""
+    operator = operator_service.create(db, body.username, body.display_name, body.role, body.password)
+    db.commit()
+    return operator_out(db, operator)
 
 
 @router.get("/me", response_model=OperatorOut)

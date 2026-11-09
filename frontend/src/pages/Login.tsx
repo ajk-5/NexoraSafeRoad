@@ -1,8 +1,10 @@
 import { useState, type FormEvent } from "react";
 import { Navigate, useNavigate } from "react-router";
 
+import emblem from "../assets/nexora-emblem.webp";
 import logo from "../assets/nexora-logo.webp";
-import { ROLE_LABELS, ROLES } from "../labels";
+import { Notice } from "../components/ui";
+import { ROLE_DESCRIPTIONS, ROLE_LABELS, ROLES } from "../labels";
 import { homePath } from "../paths";
 import { errorMessage } from "../services/api";
 import { useAuth } from "../services/auth";
@@ -34,46 +36,65 @@ export function Login() {
 
   return (
     <div className="login-page">
-      <img className="login-logo" src={logo} alt="Nexora" />
-      <form className="login-card" onSubmit={(event) => void submit(event)}>
-        <div className="login-brand">
-          <div className="brand-name">Nexora SafeRoad</div>
-          <div className="brand-area">Accident detection and response</div>
+      <section className="login-brand" aria-label="Nexora SafeRoad">
+        <img className="login-logo" src={logo} alt="Nexora" />
+        <div className="login-pitch">
+          <h1>SafeRoad</h1>
+          <p>AI-assisted road accident detection and response. The AI spots possible accidents; people confirm them and decide who to alert.</p>
         </div>
+        <img className="login-emblem" src={emblem} alt="" />
+      </section>
 
-        <label className="field">
-          <span>Sign in as</span>
-          <select value={role} onChange={(event) => setRole(event.target.value as Role)}>
-            {ROLES.map((r) => (
-              <option key={r} value={r}>
-                {ROLE_LABELS[r]}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="field">
-          <span>Username</span>
-          <input value={username} onChange={(event) => setUsername(event.target.value)} autoComplete="username" required />
-        </label>
-        <label className="field">
-          <span>Password</span>
-          <input
-            type="password"
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            autoComplete="current-password"
-            required
-          />
-        </label>
+      <main className="login-main">
+        <form className="login-card" onSubmit={(event) => void submit(event)} aria-labelledby="login-title">
+          <div>
+            <h2 id="login-title">Sign in</h2>
+            <p className="muted">Choose your role, then enter your account.</p>
+          </div>
 
-        {error && <div className="notice error">{error}</div>}
-        <button type="submit" className="button primary wide" disabled={busy}>
-          {busy ? "Signing in…" : "Sign in"}
-        </button>
-        {import.meta.env.DEV && (
-          <p className="hint">Demo accounts: admin1, police1, ambulance1, pompiers1, depannage1 — password "saferoad".</p>
-        )}
-      </form>
+          <div className="field">
+            <label className="field-label" htmlFor="login-role">
+              Sign in as
+            </label>
+            <select id="login-role" className="select" value={role} onChange={(event) => setRole(event.target.value as Role)} aria-describedby="role-hint">
+              {ROLES.map((r) => (
+                <option key={r} value={r}>
+                  {ROLE_LABELS[r]}
+                </option>
+              ))}
+            </select>
+            <span className="field-hint" id="role-hint">
+              {ROLE_DESCRIPTIONS[role]}
+            </span>
+          </div>
+
+          <label className="field">
+            <span className="field-label">Username</span>
+            <input className="input" value={username} onChange={(event) => setUsername(event.target.value)} autoComplete="username" required />
+          </label>
+          <label className="field">
+            <span className="field-label">Password</span>
+            <input
+              className="input"
+              type="password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              autoComplete="current-password"
+              required
+            />
+          </label>
+
+          {error && (
+            <Notice tone="error" live="alert">
+              {error}
+            </Notice>
+          )}
+          <button type="submit" className="btn btn-primary btn-lg btn-block" disabled={busy}>
+            {busy && <span className="spinner" aria-hidden="true" />}
+            {busy ? "Signing in…" : "Sign in"}
+          </button>
+        </form>
+      </main>
     </div>
   );
 }

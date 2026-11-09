@@ -1,7 +1,7 @@
 from fastapi import APIRouter
 
 from ..database import utcnow
-from ..deps import DB, AdminOperator
+from ..deps import DB, SuperAdminOperator
 from ..schemas.statistics import StatisticsOut
 from ..services import statistics_service
 
@@ -9,5 +9,5 @@ router = APIRouter(prefix="/statistics", tags=["statistics"])
 
 
 @router.get("", response_model=StatisticsOut)
-def statistics(db: DB, _: AdminOperator) -> StatisticsOut:
+def statistics(db: DB, _: SuperAdminOperator) -> StatisticsOut:
     return statistics_service.compute(db, utcnow())

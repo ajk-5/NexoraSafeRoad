@@ -46,6 +46,9 @@ class Incident(Base):
     assigned_admin_id: Mapped[int | None] = mapped_column(ForeignKey("operators.id"), index=True)
     locked_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
     last_activity_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
+    # When the admin confirmed it is a real accident (after watching the clip), before choosing
+    # the services. Sending an alert confirms it too, for clients that skip this step.
+    confirmed_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
     decided_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
     resolved_at: Mapped[datetime | None] = mapped_column(UTCDateTime)
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)

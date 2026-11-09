@@ -1,4 +1,4 @@
-"""Local copies of the models registered on the backend (admin "AI Training" page).
+"""Local copies of the models registered on the backend (super admin "AI & Training Data" page).
 
 Model files are pickles, which run code when loaded, so every file is checked against
 the sha256 the backend recorded before it is used.

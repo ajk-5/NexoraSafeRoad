@@ -12,7 +12,7 @@ from ..errors import Conflict, NotFound
 from ..models import LOCKED_STATUSES, Alert, Incident, IncidentStatus, Operator, ServiceType
 from ..schemas.incident import IncidentCreate
 from . import ai_service, station_service
-from .assignment_service import assign_waiting_incidents, free_operator, touch
+from .assignment_service import assign_waiting_incidents, free_operator, requeue, touch
 
 _LOAD = (
     selectinload(Incident.assigned_admin),
@@ -58,9 +58,9 @@ def attach_video(db: Session, incident_id: int, video: bytes) -> Incident:
 
 
 def visible_to(db: Session, viewer: Operator, status: IncidentStatus | None = None, limit: int = 100) -> Sequence[Incident]:
-    """Admins see every incident; a service operator only those their service was alerted to."""
+    """Admins and the super admin see every incident; a service operator only those their service was alerted to."""
     stmt = select(Incident).options(*_LOAD).order_by(Incident.detected_at.desc(), Incident.id.desc()).limit(limit)
-    if not viewer.is_admin:
+    if not viewer.sees_everything:
         stmt = stmt.where(Incident.alerts.any(Alert.service_type == viewer.service))
     if status is not None:
         stmt = stmt.where(Incident.status == status)
@@ -69,7 +69,7 @@ def visible_to(db: Session, viewer: Operator, status: IncidentStatus | None = No
 
 def get_visible(db: Session, viewer: Operator, incident_id: int) -> Incident:
     incident = db.scalar(select(Incident).options(*_LOAD).where(Incident.id == incident_id))
-    if incident is None or not (viewer.is_admin or any(a.service_type == viewer.service for a in incident.alerts)):
+    if incident is None or not (viewer.sees_everything or any(a.service_type == viewer.service for a in incident.alerts)):
         raise _not_found(incident_id)
     return incident
 
@@ -83,6 +83,27 @@ def start_review(db: Session, incident_id: int, admin: Operator, now: datetime) 
     incident = _lock_for(db, incident_id, admin)
     incident.status = IncidentStatus.UNDER_REVIEW
     touch(incident, now)
+    return incident
+
+
+def confirm(db: Session, incident_id: int, admin: Operator, now: datetime) -> Incident:
+    """The admin watched the clip and confirms a real accident; choosing the services comes next."""
+    incident = _lock_for(db, incident_id, admin)
+    if incident.confirmed_at is None:
+        incident.confirmed_at = now
+    incident.status = IncidentStatus.UNDER_REVIEW
+    touch(incident, now)
+    return incident
+
+
+def release(db: Session, incident_id: int, admin: Operator, now: datetime) -> Incident:
+    """The admin hands the incident back to the waiting queue, e.g. before a break.
+
+    It goes to the next available admin right away. Pause first to be sure it does not come
+    straight back: an ACTIVE admin is still in the running for it."""
+    incident = _lock_for(db, incident_id, admin)
+    requeue(db, incident)
+    assign_waiting_incidents(db, now)
     return incident
 
 
@@ -123,6 +144,8 @@ def send_alert(
     ]
     incident.selected_services = [s.value for s in services]
     incident.selected_stations = {a.service_type.value: a.station_id for a in alerts if a.station_id is not None}
+    if incident.confirmed_at is None:
+        incident.confirmed_at = now  # alerting a service confirms the accident
     db.add_all(alerts)
     _close_review(db, incident, admin, IncidentStatus.ALERT_SENT, now)
     return incident
