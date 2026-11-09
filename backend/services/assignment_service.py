@@ -121,11 +121,14 @@ def assign_waiting_incidents(db: Session, now: datetime | None = None) -> list[I
 
 
 def requeue(db: Session, incident: Incident) -> None:
-    """Take a locked incident away from its admin and put it back in the waiting queue."""
+    """Take a locked incident away from its admin and put it back in the waiting queue.
+
+    A confirmation is that admin's judgment, so the next admin confirms it again."""
     admin = incident.assigned_admin
     incident.status = IncidentStatus.WAITING_FOR_OPERATOR
     incident.assigned_admin = None
     incident.locked_at = None
+    incident.confirmed_at = None
     db.flush()
     if admin is not None:
         free_operator(db, admin)

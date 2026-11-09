@@ -2,8 +2,9 @@ import { formatTime, stationDistance } from "../format";
 import { ALERT_FLOW, ALERT_STATUS_LABELS, SERVICE_LABELS } from "../labels";
 import type { IncidentAlert } from "../types/api";
 
-/** Where each alerted service is in its intervention (README "Service Operator Intervention Status"). */
+/** Where each alerted service is in its intervention: Sent → Accepted → En route → On scene → Resolved. */
 export function AlertProgress({ alerts }: { alerts: IncidentAlert[] }) {
+  if (alerts.length === 0) return null;
   return (
     <ul className="alert-progress">
       {alerts.map((alert) => {
@@ -12,18 +13,19 @@ export function AlertProgress({ alerts }: { alerts: IncidentAlert[] }) {
           <li key={alert.id}>
             <div className="progress-head">
               <strong>{SERVICE_LABELS[alert.serviceType]}</strong>
+              <span className="small muted">
+                {alert.assignedOperator ? `Accepted by ${alert.assignedOperator}` : "Waiting for an operator to accept"} · sent{" "}
+                {formatTime(alert.sentAt)}
+              </span>
               {alert.station && (
-                <span>
+                <span className="small muted">
                   {alert.station.name} · {stationDistance(alert.station)}
                 </span>
               )}
-              <span className="muted">
-                {alert.assignedOperator ?? "Waiting for an operator"} · sent {formatTime(alert.sentAt)}
-              </span>
             </div>
-            <ol className="steps">
+            <ol className="steps" aria-label={`${SERVICE_LABELS[alert.serviceType]}: ${ALERT_STATUS_LABELS[alert.status]}`}>
               {ALERT_FLOW.map((step, index) => (
-                <li key={step} className={index <= reached ? "done" : undefined}>
+                <li key={step} className={index < reached ? "done" : index === reached ? "current" : undefined}>
                   {step === "SENT" ? "Sent" : ALERT_STATUS_LABELS[step]}
                 </li>
               ))}

@@ -71,7 +71,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [operator, update],
   );
 
-  if (restoring) return <div className="splash">Loading…</div>;
+  if (restoring) {
+    return (
+      <div className="splash" role="status">
+        <span className="spinner" aria-hidden="true" />
+        Restoring your session…
+      </div>
+    );
+  }
   return <AuthContext.Provider value={auth}>{children}</AuthContext.Provider>;
 }
 

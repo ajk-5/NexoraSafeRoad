@@ -1,4 +1,4 @@
-import type { Alert, Incident, Station, TrainingJob } from "./types/api";
+import type { Alert, Station, TrainingJob } from "./types/api";
 
 const timeFormat = new Intl.DateTimeFormat(undefined, { hour: "2-digit", minute: "2-digit" });
 const dateTimeFormat = new Intl.DateTimeFormat(undefined, {
@@ -8,6 +8,7 @@ const dateTimeFormat = new Intl.DateTimeFormat(undefined, {
   minute: "2-digit",
 });
 const dayFormat = new Intl.DateTimeFormat(undefined, { weekday: "short", day: "numeric" });
+const fullDateTimeFormat = new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" });
 
 export function formatTime(iso: string): string {
   return timeFormat.format(new Date(iso));
@@ -15,6 +16,11 @@ export function formatTime(iso: string): string {
 
 export function formatDateTime(iso: string): string {
   return dateTimeFormat.format(new Date(iso));
+}
+
+/** "20 Oct 2026, 14:05", for places where the day matters (history, timeline). */
+export function formatFullDateTime(iso: string): string {
+  return fullDateTimeFormat.format(new Date(iso));
 }
 
 /** "Mon 13" for a "2026-10-13" date. */
@@ -33,11 +39,28 @@ export function timeAgo(iso: string, now: number = Date.now()): string {
   return days === 1 ? "yesterday" : `${days} days ago`;
 }
 
-export function formatDuration(totalSeconds: number): string {
+/** How long since `iso`, e.g. "6 min", for "waiting 6 min". */
+export function elapsed(iso: string, now: number = Date.now()): string {
+  return formatDuration(Math.max(0, (now - new Date(iso).getTime()) / 1000), true);
+}
+
+/** "0:07" for a video position in seconds. */
+export function formatVideoTime(totalSeconds: number): string {
+  const seconds = Number.isFinite(totalSeconds) ? Math.max(0, Math.floor(totalSeconds)) : 0;
+  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
+}
+
+/** The local calendar day of an ISO time, as "2026-10-20" (for date filters). */
+export function localDay(iso: string): string {
+  const date = new Date(iso);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+export function formatDuration(totalSeconds: number, coarse = false): string {
   const seconds = Math.round(totalSeconds);
   if (seconds < 60) return `${seconds} s`;
   const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes} min ${seconds % 60} s`;
+  if (minutes < 60) return coarse ? `${minutes} min` : `${minutes} min ${seconds % 60} s`;
   return `${Math.floor(minutes / 60)} h ${minutes % 60} min`;
 }
 
@@ -63,17 +86,6 @@ export function formatDistance(meters: number): string {
 /** "1.2 km · ~3 min": straight-line distance and a rough driving time. */
 export function stationDistance(station: Station): string {
   return `${formatDistance(station.distanceM)} · ~${station.etaMinutes} min`;
-}
-
-/** One plain-language sentence about what the AI saw (no technical details). */
-export function aiSummary(incident: Incident): string {
-  const parts = [
-    `${incident.vehicles} vehicle${incident.vehicles === 1 ? "" : "s"}`,
-    `${incident.people} ${incident.people === 1 ? "person" : "people"} visible`,
-  ];
-  if (incident.fire) parts.push("fire detected");
-  if (incident.overturned) parts.push("overturned vehicle");
-  return `Possible accident (${percent(incident.confidence)} confidence): ${parts.join(", ")}.`;
 }
 
 /** A short line for alert lists, e.g. "3 vehicles · possible injuries". */

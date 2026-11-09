@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
 from .. import security
@@ -26,6 +26,22 @@ def login(db: Session, role: Role, username: str, password: str, now: datetime) 
     operator.last_seen_at = now
     _come_online(db, operator, now)
     return operator, token
+
+
+def create(db: Session, username: str, display_name: str, role: Role, password: str) -> Operator:
+    """A new account (super admin only). It starts OFFLINE until its first sign-in."""
+    username = username.strip()
+    if db.scalar(select(Operator).where(func.lower(Operator.username) == username.lower())):
+        raise Conflict("USERNAME_TAKEN", f"The username {username!r} is already used.")
+    operator = Operator(
+        username=username,
+        display_name=display_name.strip(),
+        role=role,
+        password_hash=security.hash_password(password),
+    )
+    db.add(operator)
+    db.flush()
+    return operator
 
 
 def logout(db: Session, operator: Operator) -> None:

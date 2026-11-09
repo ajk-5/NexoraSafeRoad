@@ -33,8 +33,8 @@ def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Nexora SafeRoad accident detection")
     p.add_argument("--source", required=True, help="video file, webcam index (0) or stream URL")
     p.add_argument("--camera-id", default="cam-01")
-    p.add_argument("--lat", type=float, default=48.8566, help="camera latitude (simulated for the MVP)")
-    p.add_argument("--lon", type=float, default=2.3522, help="camera longitude (simulated for the MVP)")
+    p.add_argument("--lat", type=float, default=48.8566, help="camera latitude")
+    p.add_argument("--lon", type=float, default=2.3522, help="camera longitude")
     p.add_argument("--object-model", default=str(AI_DIR / "model" / "yolo11n.pt"), help="COCO YOLO weights")
     p.add_argument(
         "--accident-model",
@@ -53,7 +53,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def choose_accident_model(args: argparse.Namespace) -> str | None:
-    """--accident-model, else the model an admin activated on the AI Training page, else the local file."""
+    """--accident-model, else the model the super admin activated on the AI & Training Data page, else the local file."""
     if args.accident_model:
         return str(args.accident_model)
     if args.backend:

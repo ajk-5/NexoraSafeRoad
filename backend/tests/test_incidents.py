@@ -1,6 +1,7 @@
 """The AI pipeline's side of the API, and statistics."""
 import unittest
 
+from backend.models import Role
 from backend.tests.base import AI_HEADERS, ApiTestCase, ai_report
 
 
@@ -50,7 +51,7 @@ class StatisticsTest(ApiTestCase):
         self.report(severity="LOW", camera_id="cam-02")
         self.post(f"/api/incidents/{first['id']}/send", admin, {"services": ["POLICE", "AMBULANCE"]})
 
-        stats = self.get("/api/statistics", admin)
+        stats = self.get("/api/statistics", self.login("superadmin", Role.SUPERADMIN))
         self.assertEqual(stats["totalIncidents"], 2)
         self.assertEqual(stats["incidentsBySeverity"], {"LOW": 1, "MEDIUM": 0, "HIGH": 1})
         self.assertEqual(stats["incidentsByStatus"]["ALERT_SENT"], 1)

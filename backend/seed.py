@@ -8,7 +8,10 @@ from .security import hash_password
 
 DEMO_PASSWORD = "saferoad"
 
+DEMO_SUPERADMIN = ("superadmin", "Super Admin", Role.SUPERADMIN)
+
 DEMO_OPERATORS = [
+    DEMO_SUPERADMIN,
     ("admin1", "Admin Operator 01", Role.ADMIN),
     ("admin2", "Admin Operator 02", Role.ADMIN),
     ("admin3", "Admin Operator 03", Role.ADMIN),
@@ -20,11 +23,17 @@ DEMO_OPERATORS = [
 
 
 def seed_demo_operators(db: Session) -> None:
+    """All demo accounts in an empty database. A database created before the super admin role
+    existed gets the demo super admin, so the platform can still be administered."""
     if db.scalar(select(func.count()).select_from(Operator)):
-        return
+        has_superadmin = db.scalar(select(func.count()).select_from(Operator).where(Operator.role == Role.SUPERADMIN))
+        username_free = db.scalar(select(func.count()).select_from(Operator).where(Operator.username == DEMO_SUPERADMIN[0])) == 0
+        accounts = [DEMO_SUPERADMIN] if not has_superadmin and username_free else []
+    else:
+        accounts = DEMO_OPERATORS
     db.add_all(
         Operator(username=u, display_name=name, role=role, password_hash=hash_password(DEMO_PASSWORD))
-        for u, name, role in DEMO_OPERATORS
+        for u, name, role in accounts
     )
     db.commit()
 

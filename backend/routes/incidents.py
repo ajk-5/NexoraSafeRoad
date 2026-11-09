@@ -37,6 +37,7 @@ def incident_out(incident: Incident, viewer: Operator | None = None) -> Incident
         video_url=incident.video_url,
         status=incident.status,
         detected_at=incident.detected_at,
+        confirmed_at=incident.confirmed_at,
         decided_at=incident.decided_at,
         resolved_at=incident.resolved_at,
         assigned_admin=incident.assigned_admin.display_name if incident.assigned_admin else None,
@@ -113,6 +114,22 @@ def upload_video(incident_id: int, video: Annotated[bytes, Body(media_type="vide
 def start_review(incident_id: int, db: DB, admin: AdminOperator):
     """The admin opened the incident page (ASSIGNED -> UNDER_REVIEW)."""
     incident = incident_service.start_review(db, incident_id, admin, utcnow())
+    db.commit()
+    return incident_out(incident, admin)
+
+
+@router.post("/{incident_id}/confirm", response_model=IncidentOut)
+def confirm(incident_id: int, db: DB, admin: AdminOperator):
+    """The admin confirms a real accident; choosing the services to alert comes next."""
+    incident = incident_service.confirm(db, incident_id, admin, utcnow())
+    db.commit()
+    return incident_out(incident, admin)
+
+
+@router.post("/{incident_id}/release", response_model=IncidentOut)
+def release(incident_id: int, db: DB, admin: AdminOperator):
+    """Hand the incident back to the waiting queue for another admin (pause first)."""
+    incident = incident_service.release(db, incident_id, admin, utcnow())
     db.commit()
     return incident_out(incident, admin)
 

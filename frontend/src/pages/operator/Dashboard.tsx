@@ -1,79 +1,77 @@
-import { useState } from "react";
-import { Link } from "react-router";
+import { useEffect, useRef } from "react";
+import { useSearchParams } from "react-router";
 
-import { AcceptAlertButton } from "../../components/AcceptAlertButton";
-import { AlertStatusBadge, SeverityBadge } from "../../components/Badges";
-import { IncidentMap } from "../../components/IncidentMap";
-import { DataState, PageHeader, Panel } from "../../components/ui";
-import { alertDescription, locationLabel, timeAgo } from "../../format";
-import { OPEN_INCIDENT_STATUSES, SERVICE_LABELS } from "../../labels";
-import { api } from "../../services/api";
+import { Icon } from "../../components/Icon";
+import { AlertQueue } from "../../components/queue/AlertQueue";
+import { OperatorWorkspace } from "../../components/workspace/OperatorWorkspace";
+import { parseAlertFilter, type AlertFilter } from "../../domain/alerts";
+import { SERVICE_LABELS, serviceOf } from "../../labels";
+import { parseId } from "../../paths";
 import { useOperator } from "../../services/auth";
-import { usePolling } from "../../services/usePolling";
+import { useLive } from "../../services/live";
 
-/** README "Service Operator Dashboard": only this service's incidents and alerts. */
+/** A service operator's workspace: new alerts on the left, the selected incident on the right. */
 export function OperatorDashboard() {
   const operator = useOperator();
-  const incidents = usePolling(() => api.incidents(), []);
-  const alerts = usePolling(() => api.alerts(), []);
-  const [acceptError, setAcceptError] = useState<string | null>(null);
-
-  const open = (incidents.data ?? []).filter((i) => OPEN_INCIDENT_STATUSES.includes(i.status));
-  const current = (alerts.data ?? []).find((a) => a.canUpdate);
-  const waiting = (alerts.data ?? []).filter((a) => a.status === "SENT");
-  const service = operator.role === "ADMIN" ? "" : SERVICE_LABELS[operator.role];
+  const { alerts } = useLive();
+  const [params, setParams] = useSearchParams();
+  const explicitId = parseId(params.get("incident"));
+  const selectedId = explicitId ?? operator.currentIncidentId;
+  const workspaceRef = useRef<HTMLDivElement>(null);
+  // A newly chosen incident starts at its top, not where the previous one was scrolled to.
+  useEffect(() => {
+    workspaceRef.current?.scrollTo?.({ top: 0 });
+    window.scrollTo?.({ top: 0 }); // phones scroll the page itself
+  }, [selectedId]);
+  const ownService = serviceOf(operator.role);
+  const service = ownService ? SERVICE_LABELS[ownService] : "";
+  // The queue's filter lives in the address bar, so it survives a reload and the Back button.
+  const filter = parseAlertFilter(params.get("filter")) ?? "all";
+  const withFilter = (next: AlertFilter) => {
+    const target = new URLSearchParams(params);
+    if (next === "all") target.delete("filter");
+    else target.set("filter", next);
+    return target;
+  };
+  const fresh = (alerts.data ?? []).filter((a) => a.status === "SENT").length;
 
   return (
-    <>
-      <PageHeader title={`${service} dashboard`} />
-      <Panel title="Incident map">
-        <DataState error={incidents.error} loading={incidents.data === undefined} />
-        <IncidentMap incidents={open} linkBase="/operator/incidents" />
-      </Panel>
-
-      <div className="grid-2">
-        <Panel title="Assigned incidents">
-          <DataState error={alerts.error} loading={alerts.data === undefined} />
-          {acceptError && <div className="notice error">{acceptError}</div>}
-          {current && (
-            <Link to={`/operator/incidents/${current.incidentId}`} className="current-card">
-              <div>
-                <div className="muted">Your intervention</div>
-                <strong>{current.incidentReference}</strong> · {locationLabel(current)}
+    <div className={`page-bleed dashboard${explicitId !== null ? " has-selection" : ""}`}>
+      <div className="dashboard-body">
+        <AlertQueue
+          alerts={alerts.data}
+          error={alerts.error}
+          onRetry={alerts.reload}
+          operator={operator}
+          selectedIncidentId={selectedId}
+          linkFor={(id) => {
+            const target = new URLSearchParams(params);
+            target.set("incident", String(id));
+            return `?${target.toString()}`;
+          }}
+          filter={filter}
+          onFilter={(next) => setParams(withFilter(next), { replace: true })}
+        />
+        <div className="workspace-area" ref={workspaceRef}>
+          {selectedId === null ? (
+            <div className="idle-workspace card">
+              <div className={`idle-icon${operator.status === "PAUSED" ? " paused" : ""}`}>
+                <Icon name={operator.status === "PAUSED" ? "pause" : "shieldCheck"} size="lg" />
               </div>
-              <AlertStatusBadge status={current.status} />
-            </Link>
+              <h2>{operator.status === "PAUSED" ? "You are paused" : "No intervention in progress"}</h2>
+              <p>
+                {operator.status === "PAUSED"
+                  ? "You cannot accept new alerts while paused. Resume from the top bar when you are ready."
+                  : fresh > 0
+                    ? "Open a new alert on the left, check the clip and location, then accept it."
+                    : `New ${service} alerts appear on the left as soon as an admin sends them.`}
+              </p>
+            </div>
+          ) : (
+            <OperatorWorkspace key={selectedId} id={selectedId} />
           )}
-          {alerts.data && waiting.length === 0 && !current && <div className="empty">No incidents for {service} right now.</div>}
-          <ul className="list">
-            {waiting.map((alert) => (
-              <li key={alert.id} className={`new-alert severity-edge-${alert.severity.toLowerCase()}`}>
-                <Link to={`/operator/incidents/${alert.incidentId}`}>{alert.incidentReference}</Link>
-                <SeverityBadge severity={alert.severity} />
-                <span>{alertDescription(alert)}</span>
-                <span className="muted">{timeAgo(alert.sentAt)}</span>
-                {alert.canAccept && (
-                  <AcceptAlertButton alertId={alert.id} incidentId={alert.incidentId} onError={setAcceptError} />
-                )}
-              </li>
-            ))}
-          </ul>
-        </Panel>
-
-        <Panel title="Recent alerts">
-          <ul className="list">
-            {(alerts.data ?? []).slice(0, 6).map((alert) => (
-              <li key={alert.id}>
-                <Link to={`/operator/incidents/${alert.incidentId}`}>{alert.incidentReference}</Link>
-                <AlertStatusBadge status={alert.status} />
-                <span className="muted">{alert.assignedOperator ?? "Not accepted yet"}</span>
-                <span className="muted">{timeAgo(alert.sentAt)}</span>
-              </li>
-            ))}
-          </ul>
-          {alerts.data?.length === 0 && <div className="empty">No alerts yet.</div>}
-        </Panel>
+        </div>
       </div>
-    </>
+    </div>
   );
 }

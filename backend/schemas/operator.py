@@ -14,6 +14,15 @@ class LoginRequest(Schema):
     password: str = Field(min_length=1)
 
 
+class OperatorCreate(Schema):
+    """A new account, created by the super admin."""
+
+    username: str = Field(min_length=3, max_length=64, pattern=r"^[a-zA-Z0-9._-]+$")
+    display_name: str = Field(min_length=1, max_length=100)
+    role: Role
+    password: str = Field(min_length=8, max_length=128)
+
+
 class OperatorOut(Schema):
     id: int
     username: str
