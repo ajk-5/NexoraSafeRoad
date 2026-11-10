@@ -47,7 +47,7 @@ export function Login() {
         <form className="login-card" onSubmit={(event) => void submit(event)} aria-labelledby="login-title">
           <div>
             <h2 id="login-title">Sign in</h2>
-            <p className="muted">Enter your account. We’ll open the dashboard for your role automatically.</p>
+            <p className="muted">Enter your credentials to access your account.</p>
           </div>
 
           <label className="field">

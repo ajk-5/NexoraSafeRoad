@@ -3,10 +3,41 @@ import tempfile
 import unittest
 from pathlib import Path
 from typing import Any
+from unittest.mock import Mock, patch
 
 
 @unittest.skipUnless(importlib.util.find_spec("cv2"), "opencv-python not installed")
 class ClipRecorderTest(unittest.TestCase):
+    def test_windows_prefers_mp4v_without_trying_openh264(self):
+        import cv2
+        from ai.clip_recorder import ClipRecorder
+
+        recorder = ClipRecorder(10)
+        recorder._size = (64, 48)
+        writer = Mock()
+        writer.isOpened.return_value = True
+        with patch("ai.clip_recorder.sys.platform", "win32"), patch(
+            "ai.clip_recorder.cv2.VideoWriter", return_value=writer
+        ) as factory:
+            self.assertIs(recorder._open_writer(Path("clip.mp4")), writer)
+            factory.assert_called_once_with("clip.mp4", cv2.VideoWriter_fourcc(*"mp4v"), 10, (64, 48))
+
+    def test_cached_encoder_failure_tries_alternative_and_releases_writer(self):
+        from ai.clip_recorder import ClipRecorder
+
+        recorder = ClipRecorder(10)
+        recorder._size = (64, 48)
+        recorder._codec = "avc1"
+        failed, working = Mock(), Mock()
+        failed.isOpened.return_value = False
+        working.isOpened.return_value = True
+        with patch("ai.clip_recorder.sys.platform", "linux"), patch(
+            "ai.clip_recorder.cv2.VideoWriter", side_effect=[failed, working]
+        ):
+            self.assertIs(recorder._open_writer(Path("clip.mp4")), working)
+        failed.release.assert_called_once()
+        self.assertEqual(recorder._codec, "mp4v")
+
     def test_clip_holds_frames_before_and_after_the_accident(self):
         import cv2
         import numpy as np

@@ -4,14 +4,17 @@ from __future__ import annotations
 
 from collections import deque
 from dataclasses import dataclass
+import logging
 from pathlib import Path
+import sys
 from typing import Any
 
 import cv2
 import numpy as np
 
-# avc1 (H.264) plays in browsers but needs OpenH264 on Windows; mp4v always works.
+# Prefer the bundled MPEG-4 encoder on Windows; avc1 requires an external DLL.
 CODECS = ("avc1", "mp4v")
+log = logging.getLogger("saferoad.ai")
 
 
 @dataclass
@@ -72,9 +75,17 @@ class ClipRecorder:
     def _open_writer(self, path: Path) -> cv2.VideoWriter:
         if self._size is None:
             raise RuntimeError("No frame has been pushed yet")
-        for codec in [self._codec] if self._codec else CODECS:
-            writer = cv2.VideoWriter(str(path), cv2.VideoWriter.fourcc(*codec), self.fps, self._size)
+        codecs = ("mp4v", "avc1") if sys.platform == "win32" else CODECS
+        # A previously working encoder can fail later; still try the alternatives.
+        candidates = list(dict.fromkeys(([self._codec] if self._codec else []) + list(codecs)))
+        for codec in candidates:
+            writer = cv2.VideoWriter(str(path), cv2.VideoWriter_fourcc(*codec), self.fps, self._size)
             if writer.isOpened():
+                if codec != self._codec:
+                    log.info("Recording clips with %s", codec)
+                    if codec == "mp4v":
+                        log.warning("MPEG-4 clips may require downloading to play in your browser")
                 self._codec = codec
                 return writer
+            writer.release()
         raise RuntimeError(f"Cannot open a video writer for {path}")

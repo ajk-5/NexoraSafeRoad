@@ -94,9 +94,12 @@ frame ─► object model (vehicles, people) ─┐
 - **Confirmation**: one frame is never enough; the accident must be seen in several consecutive
   frames, which removes most single-frame false positives.
 - **Clips**: the recorder keeps a rolling buffer (JPEG-compressed in memory), so a clip starts
-  `--clip-seconds` *before* the detection. Clips are written as H.264 (`avc1`) when OpenCV can,
-  which browsers play; otherwise `mp4v`, which browsers cannot play (the console then offers a
-  download). On Windows, H.264 needs the OpenH264 library next to OpenCV.
+  `--clip-seconds` *before* the detection. Windows prefers `mp4v` to avoid requiring an external
+  OpenH264 DLL. Other platforms try H.264 (`avc1`) first and fall back to `mp4v`.
+  The selected codec is logged. MPEG-4 clips may need to be downloaded from the console to play.
+- **Windows webcams**: DirectShow is tried first, then the default backend if opening fails.
+  A failed webcam read triggers one reopen attempt; if it fails again, capture stops and any
+  pending clips are saved. Video files still stop normally at end of file.
 - **Reported fields**: camera, position, severity, confidence, vehicles, people, fire, overturned,
   detection time. The backend derives `possibleInjuries` and the suggested services from them.
 
